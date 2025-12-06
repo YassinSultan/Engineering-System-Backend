@@ -21,52 +21,64 @@ export const createCompany = catchAsync(async (req, res, next) => {
 });
 // get all
 // get all companies مع أقوى بحث في التاريخ
-export const getCompanies = catchAsync(async (req, res, next) => {
-    const { page = 1, limit = 10, search = "", category } = req.query;
+export const getCompanies = async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const search = req.query.search || "";
+        const sortBy = req.query.sortBy || "createdAt";
+        const sortOrder = req.query.sortOrder || "desc";
+        let filters = {};
 
-    const query = { deleted: false };
-
-    // Full-Text Search
-    if (search.trim()) {
-        query.$text = { $search: search.trim() };
-    }
-
-    // فلتر بالتصنيف
-    if (category) {
-        query.companyCategory = category;
-    }
-
-    const options = {
-        page: parseInt(page, 10),
-        limit: parseInt(limit, 10),
-        sort: search.trim()
-            ? { score: { $meta: "textScore" }, createdAt: -1 }
-            : { createdAt: -1 },
-        // ← أهم حاجة: نجيب الـ score عشان يشتغل الترتيب والـ searchScore
-        ...(search.trim() && {
-            projection: { score: { $meta: "textScore" } }
-        })
-    };
-
-    const result = await Company.paginate(query, options);
-
-    // تحويل الـ docs لـ plain objects + إضافة searchScore لو موجود
-    const docs = result.docs.map(doc => {
-        const plain = doc.toObject?.() ?? doc;  // أكثر أمانًا
-        if (doc.score !== undefined) {
-            plain.searchScore = doc.score;
+        if (req.query.filters) {
+            try {
+                filters = JSON.parse(req.query.filters);
+            } catch (e) {
+                return res.status(400).json({ success: false, message: "Invalid filters format" });
+            }
         }
-        return plain;
-    });
 
-    res.json({
-        success: true,
-        page: result.page,
-        limit: result.limit,
-        total: result.totalDocs,
-        data: docs,
-    });
-});
+        const query = { deleted: false };
+
+        if (search) {
+            query.$text = { $search: search };
+        }
+
+        Object.keys(filters).forEach((field) => {
+            if (filters[field]) {
+                query[field] = { $regex: new RegExp(escapeRegExp(filters[field]), "i") };
+            }
+        });
+
+        const options = {
+            page,
+            limit,
+            sort: search
+                ? { score: { $meta: "textScore" } }
+                : { [sortBy]: sortOrder === "desc" ? -1 : 1 },
+            lean: true,
+        };
+
+        const result = await Company.paginate(query, options);
+
+        res.json({
+            success: true,
+            data: result.docs,
+            total: result.totalDocs,
+            limit: result.limit,
+            page: result.page,
+            totalPages: result.totalPages,
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+};
+
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 // get one
 export const getCompany = catchAsync(async (req, res, next) => {
     const company = await Company.findById(req.params.id);
@@ -149,24 +161,42 @@ export const hardDeleteCompany = catchAsync(async (req, res, next) => {
 });
 
 // دالة عامة ترجع القيم الفريدة لأي حقل
-export const getFilterOptions = (field) =>
-    catchAsync(async (req, res, next) => {
-        const values = await Company.distinct(field, { deleted: false })
-            .sort() // ترتيب أبجدي
-            .collation({ locale: "en" }); // عشان يرتب عربي وإنجليزي صح
+// في controller
+export const getFilterOptions = async (req, res) => {
+    const field = req.params.field;
 
-        // لو الحقل address، ممكن نستخرج المدينة بس (اختياري)
-        if (field === "address") {
-            const cities = [...new Set(
-                values
-                    .map(addr => addr?.split("-").pop()?.trim()) // آخر جزء بعد -
-                    .filter(Boolean)
-            )].sort();
-            return res.json({ success: true, data: cities });
-        }
+    // Validate allowed fields to prevent injection
+    const allowedFields = [
+        "companyCode", "companyName", "commercialRegister", "securityApprovalNumber",
+        "companyCategory", "companyBrand", "companyActivity", "ownerName",
+        "ownerNID", "representativeName", "legalForm", "fiscalYear"
+    ];
 
-        res.json({ success: true, data: values.filter(Boolean) }); // إزالة null/undefined
-    });
+    if (!allowedFields.includes(field)) {
+        return res.status(400).json({ success: false, message: "Invalid field" });
+    }
+
+    const search = req.query.search || "";
+
+    try {
+        const regex = new RegExp(escapeRegExp(search), "i");
+        const results = await Company.distinct(field, {
+            [field]: regex,
+            deleted: false
+        });
+
+        // Sort and limit
+        const sorted = results
+            .filter(Boolean) // remove null/undefined
+            .sort((a, b) => a.localeCompare(b, 'ar'))
+            .slice(0, 20);
+
+        res.json({ success: true, data: sorted });
+    } catch (err) {
+        console.error("Filter options error:", err);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+};
 
 
 /**
@@ -174,7 +204,8 @@ export const getFilterOptions = (field) =>
 */
 export const exportToExcel = catchAsync(async (req, res, next) => {
     // 1. قراءة الفلاتر من الـ body (نفس الفلاتر التي تستخدمها في GET)
-    const { search, category, fiscalYear, page, limit, ...rest } = req.body;
+    const search = req.body.search || "";
+    const filters = req.body.filters ? JSON.parse(req.body.filters) : {};
 
     // 2. بناء الـ query (نفس منطق getCompanies)
     const query = { deleted: false };
@@ -182,8 +213,12 @@ export const exportToExcel = catchAsync(async (req, res, next) => {
     if (search) {
         query.$text = { $search: search };
     }
-    if (category) query.companyCategory = category;
-    if (fiscalYear) query.fiscalYear = fiscalYear;
+
+    Object.keys(filters).forEach((field) => {
+        if (filters[field]) {
+            query[field] = { $regex: new RegExp(escapeRegExp(filters[field]), "i") };
+        }
+    });
 
     // 3. جلب البيانات (بدون pagination لأننا نريد كل النتائج)
     const companies = await Company.find(query)
@@ -252,6 +287,7 @@ export const exportToExcel = catchAsync(async (req, res, next) => {
         sheet.addRow({
             ...c,
             phones: Array.isArray(c.phones) ? c.phones.join(", ") : c.phones,
+            companyDocuments: Array.isArray(c.companyDocuments) ? c.companyDocuments.join(", ") : c.companyDocuments,
             securityApprovalDate: c.securityApprovalDate
                 ? new Date(c.securityApprovalDate).toLocaleDateString("ar-EG")
                 : "",

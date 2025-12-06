@@ -19,7 +19,7 @@ const cpUpload = upload.fields([
 ]);
 
 router.post("/", cpUpload, validateCompany, createCompany);
-router.get("/export/excel", exportToExcel);
+router.post("/export", exportToExcel);
 router.get("/", getCompanies);
 router.get("/:id", getCompany);
 router.patch("/:id", cpUpload, updateCompany);
@@ -27,11 +27,6 @@ router.delete("/hard/:id", deleteCompany);
 router.delete("/:id", deleteCompany);
 
 // جديد: جلب القيم الفريدة للـ filters
-router.get("/filters/categories", getFilterOptions("companyCategory"));
-router.get("/filters/legal-forms", getFilterOptions("legalForm"));
-router.get("/filters/address", getFilterOptions("address")); // لو عايز تفلتر بالمدينة مثلاً
-router.get("/filters/years", getFilterOptions("fiscalYear"));
-router.get("/filters/companyName", getFilterOptions("companyName"));
-router.get("/filters/companyCode", getFilterOptions("companyCode"));
+router.get("/filter/:field", getFilterOptions);
 
 export default router;
