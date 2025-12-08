@@ -8,7 +8,7 @@ const userSchema = new mongoose.Schema(
         subUnit: { type: String, trim: true },
         specialization: { type: String, trim: true },
         office: { type: String, trim: true },
-
+        phones: [String],
         username: {
             type: String,
             required: true,
@@ -51,6 +51,9 @@ const userSchema = new mongoose.Schema(
                 return this.role !== "super_admin"; // Fixed logic
             },
         },
+
+        // Soft delete
+        isDeleted: { type: Boolean, default: false },
     },
     { timestamps: true }
 );

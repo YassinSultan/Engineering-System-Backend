@@ -4,7 +4,6 @@ import express from "express";
 
 import { assignPermissions, createUser, getUserByToken, login } from "../controllers/auth.controller.js";
 import { protect, restrictTo } from "../../../middleware/auth.middleware.js";
-import { get } from "mongoose";
 
 const router = express.Router();
 
