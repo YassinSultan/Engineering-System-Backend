@@ -41,20 +41,35 @@ export const updateProfile = catchAsync(async (req, res, next) => {
 
 // change password
 export const changePassword = catchAsync(async (req, res, next) => {
-    const user = await User.findById(req.user.id);
-    if (!user || user.isDeleted) return next(new AppError("User not found", 404));
-
-    const { oldPassword, newPassword } = req.body;
-    if (!oldPassword || !newPassword) {
-        return next(new AppError("Please provide old password and new password", 400));
+    const user = await User.findById(req.user.id).select('+password');
+    if (!user || user.isDeleted) {
+        return next(new AppError("User not found", 404));
     }
 
-    if (!(await user.comparePassword(oldPassword))) {
-        return next(new AppError("Incorrect old password", 401));
+    const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword) {
+        return next(new AppError("يجب إدخال كلمة المرور القديمة والجديدة", 400));
+    }
+
+    if (newPassword.length < 6) {
+        return next(new AppError("كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل", 400));
+    }
+
+    const isMatch = await user.comparePassword(oldPassword);
+    if (!isMatch) {
+        return next(new AppError("كلمة المرور القديمة غير صحيحة", 401));
     }
 
     user.password = newPassword;
     await user.save();
 
-    res.json({ success: true, token });
+    // اختياري: توليد توكن جديد
+    // const token = generateToken(user._id);
+
+    res.json({
+        success: true,
+        message: "تم تغيير كلمة المرور بنجاح",
+        // token, // لو عايز ترجعه
+    });
 });
