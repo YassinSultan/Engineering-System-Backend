@@ -26,6 +26,7 @@ const companySchema = new mongoose.Schema(
         securityApprovalFile: String, // الموافقة الأمنية
         companyDocuments: [String], //اوراق الشركة
 
+        branchId: { type: mongoose.Schema.Types.ObjectId, ref: "Branch", required: true },
         // Soft delete
         deleted: { type: Boolean, default: false },
     },

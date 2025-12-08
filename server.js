@@ -9,8 +9,12 @@ import "express-async-errors"; // Must be after express
 import connectDB from "./src/config/database.js";
 import errorHandler from "./src/middleware/errorHandler.js";
 
+
+import authRouter from "./src/modules/User/routes/auth.routes.js";
 import companyRouter from "./src/modules/company/routes/company.routes.js";
 import logger from "./src/utils/logger.js";
+import { branchFilter, protect } from "./src/middleware/auth.middleware.js";
+import { seedSuperAdmin } from "./src/config/seed.js";
 dotenv.config();
 const app = express();
 
@@ -25,18 +29,23 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Serve uploads
-app.use("/uploads", express.static("uploads"));
 
 // Connect DB
 connectDB();
+seedSuperAdmin();
+
 
 app.get("/", (req, res) => {
     res.send("API working");
 });
 
+// Serve uploads
+app.use("/uploads", express.static("uploads"));
+app.use('/avatars', express.static('public/avatars'));
+
 // Routes
-app.use("/api/companies", companyRouter);
+app.use("/api/companies", protect, branchFilter, companyRouter);
+app.use("/api/auth", authRouter);
 
 // Global error handler
 app.use(errorHandler);

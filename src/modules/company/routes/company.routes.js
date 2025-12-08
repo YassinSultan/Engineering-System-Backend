@@ -10,6 +10,7 @@ import {
 } from "../controllers/company.controller.js";
 import { upload } from "../../../middleware/upload.js";
 import { validateCompany } from "../../../middleware/validators.js";
+import { restrictTo } from "../../../middleware/auth.middleware.js";
 
 const router = express.Router();
 
@@ -19,7 +20,7 @@ const cpUpload = upload.fields([
 ]);
 
 router.post("/", cpUpload, validateCompany, createCompany);
-router.post("/export", exportToExcel);
+router.post("/export", restrictTo("companies:export"), exportToExcel);
 router.get("/", getCompanies);
 router.get("/:id", getCompany);
 router.patch("/:id", cpUpload, updateCompany);
@@ -27,6 +28,6 @@ router.delete("/hard/:id", deleteCompany);
 router.delete("/:id", deleteCompany);
 
 // جديد: جلب القيم الفريدة للـ filters
-router.get("/filter/:field", getFilterOptions);
+router.get("/filter/:field", restrictTo("companies:read"), getFilterOptions);
 
 export default router;
