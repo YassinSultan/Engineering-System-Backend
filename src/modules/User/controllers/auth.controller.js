@@ -29,12 +29,6 @@ export const login = catchAsync(async (req, res, next) => {
     res.json({ success: true, token });
 });
 
-// Super Admin only: create user
-export const createUser = catchAsync(async (req, res, next) => {
-    const newUser = await User.create(req.body);
-    res.json({ success: true, data: newUser });
-});
-
 // Super Admin only: assign permissions
 export const assignPermissions = catchAsync(async (req, res, next) => {
     const user = await User.findById(req.params.userId);
