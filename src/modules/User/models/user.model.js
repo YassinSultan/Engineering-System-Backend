@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
-
+import mongoosePaginate from "mongoose-paginate-v2";
 const userSchema = new mongoose.Schema(
     {
         fullName: { type: String, required: true, trim: true },
@@ -58,6 +58,22 @@ const userSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
+userSchema.plugin(mongoosePaginate);
+
+// Full-Text Search Index (أهم خطوة)
+userSchema.index({
+    fullName: "text",
+    mainUnit: "text",
+    subUnit: "text",
+    specialization: "text",
+    office: "text",
+    phones: "text",
+    username: "text",
+    role: "text",
+    branchId: "text",
+    permissions: "text"
+
+});
 // Virtual to check if user is super admin
 userSchema.virtual("isSuperAdmin").get(function () {
     return this.role === "super_admin";

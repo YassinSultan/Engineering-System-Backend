@@ -4,6 +4,7 @@ import { catchAsync } from "../../../utils/catchAsync.js";
 import { deleteFiles } from "../../../utils/deleteFiles.js";
 import logger from "../../../utils/logger.js";
 import ExcelJS from "exceljs";
+import { escapeRegExp } from "../../../utils/escapeRegExp.js";
 // create
 export const createCompany = catchAsync(async (req, res, next) => {
     const data = { ...req.body };
@@ -75,10 +76,6 @@ export const getCompanies = async (req, res) => {
     }
 };
 
-function escapeRegExp(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 // get one
 export const getCompany = catchAsync(async (req, res, next) => {
     const company = await Company.findById(req.params.id);
@@ -133,11 +130,11 @@ export const deleteCompany = catchAsync(async (req, res, next) => {
     // Soft delete
     await Company.findByIdAndUpdate(req.params.id, { deleted: true });
 
-    // Delete files
-    const filesToDelete = [];
-    if (company.securityApprovalFile) filesToDelete.push(company.securityApprovalFile);
-    if (company.companyDocuments) filesToDelete.push(...company.companyDocuments);
-    deleteFiles(filesToDelete);
+    // // Delete files
+    // const filesToDelete = [];
+    // if (company.securityApprovalFile) filesToDelete.push(company.securityApprovalFile);
+    // if (company.companyDocuments) filesToDelete.push(...company.companyDocuments);
+    // deleteFiles(filesToDelete);
 
     logger.info(`Company soft-deleted: ${req.params.id}`);
     res.json({ success: true, message: "Deleted" });
@@ -197,8 +194,6 @@ export const getFilterOptions = async (req, res) => {
         res.status(500).json({ success: false, message: "Server error" });
     }
 };
-
-
 /**
 * تصدير الشركات إلى Excel
 */
