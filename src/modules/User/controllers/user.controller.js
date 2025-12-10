@@ -124,9 +124,15 @@ export const updateUser = catchAsync(async (req, res, next) => {
 });
 
 export const deleteUser = catchAsync(async (req, res, next) => {
+    const currentUser = req.user;
+    // svae delete user super admin
     const user = await User.findById(req.params.id);
-    if (!user) return next(new AppError("User not found", 404));
-
+    if (!user || user.isDeleted) return next(new AppError("User not found", 404));
+    if (user.role === "super_admin") {
+        if (currentUser.role !== "super_admin") {
+            return next(new AppError("لا يمكنك حذف سوبر ادمن الا السوبر ادمن", 403));
+        }
+    }
     // Soft delete
     await User.findByIdAndUpdate(req.params.id, { isDeleted: true });
 

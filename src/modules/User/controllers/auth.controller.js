@@ -7,12 +7,15 @@ import { AppError } from "../../../utils/AppError.js";
 export const login = catchAsync(async (req, res, next) => {
     const { username, password } = req.body;
     if (!username || !password) {
-        return next(new AppError("Please provide username and password", 400));
+        return next(new AppError("اسم المستخدم وكلمة المرور مطلوبة", 400));
     }
 
     const user = await User.findOne({ username }).select("+password");
     if (!user || !(await user.comparePassword(password))) {
-        return next(new AppError("Incorrect username or password", 401));
+        return next(new AppError("اسم المستخدم او كلمة المرور غير صحيح", 401));
+    }
+    if (user.isDeleted) {
+        return next(new AppError("حسابك محذوف", 401));
     }
 
     const token = jwt.sign(
