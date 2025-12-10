@@ -4,7 +4,7 @@ import { AppError } from "../../../utils/AppError.js";
 import { escapeRegExp } from "../../../utils/escapeRegExp.js";
 import logger from "../../../utils/logger.js";
 import { normalizePermissions, hasPermission } from "../../../utils/permission.utils.js";
-
+import ExcelJS from "exceljs";
 export const createUser = catchAsync(async (req, res, next) => {
     let { permissions = [], role = "user", ...rest } = req.body;
 
