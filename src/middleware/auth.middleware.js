@@ -4,6 +4,7 @@ import { promisify } from "util";
 import User from "../modules/User/models/user.model.js";
 import { AppError } from "../utils/AppError.js";
 import { catchAsync } from "../utils/catchAsync.js";
+import { hasPermission } from "../utils/permission.utils.js";
 
 // chick if user is logged in
 export const protect = catchAsync(async (req, res, next) => {
@@ -28,14 +29,19 @@ export const protect = catchAsync(async (req, res, next) => {
 });
 
 // check if user has permission
-export const restrictTo = (...permissions) => {
+export const restrictTo = (...requiredPermissions) => {
     return (req, res, next) => {
-        if (req.user.role === "super_admin") return next(); // Super Admin bypass
+        // req.user يتم تعيينه في protect middleware
+        const user = req.user;
 
-        const hasPermission = permissions.some(perm => req.user.permissions.includes(perm));
-        if (!hasPermission) {
-            return next(new AppError("You do not have permission to perform this action", 403));
+        const allowed = requiredPermissions.some(perm =>
+            hasPermission(user, perm)
+        );
+
+        if (!allowed) {
+            return next(new AppError("ليس لديك صلاحية لتنفيذ هذا الإجراء", 403));
         }
+
         next();
     };
 };

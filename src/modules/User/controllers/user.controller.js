@@ -2,11 +2,37 @@ import User from "../models/user.model.js";
 import { catchAsync } from "../../../utils/catchAsync.js";
 import { AppError } from "../../../utils/AppError.js";
 import { escapeRegExp } from "../../../utils/escapeRegExp.js";
-
+import logger from "../../../utils/logger.js";
+import { normalizePermissions, hasPermission } from "../../../utils/permission.utils.js";
 
 export const createUser = catchAsync(async (req, res, next) => {
-    const newUser = await User.create(req.body);
-    res.json({ success: true, data: newUser });
+    let { permissions = [], role = "user", ...rest } = req.body;
+
+    // سوبر أدمن فقط من ينشئ سوبر أدمن
+    if (role === "super_admin" && req.user.role !== "super_admin") {
+        return next(new AppError("غير مسموح بإنشاء سوبر أدمن", 403));
+    }
+
+    // تطبيع + منع منح صلاحيات أعلى
+    if (role !== "super_admin") {
+        if (req.user.role !== "super_admin") {
+            const unauthorized = permissions.some(p => !hasPermission(req.user, p));
+            if (unauthorized) {
+                return next(new AppError("لا يمكنك منح صلاحية لا تملكها", 403));
+            }
+        }
+        permissions = normalizePermissions(permissions);
+    } else {
+        permissions = [];
+    }
+
+    const newUser = await User.create({
+        ...rest,
+        role,
+        permissions
+    });
+
+    res.status(201).json({ success: true, data: newUser });
 });
 
 
@@ -73,22 +99,27 @@ export const getUser = catchAsync(async (req, res) => {
 export const updateUser = catchAsync(async (req, res, next) => {
     const { id } = req.params;
 
-    const oldUser = await User.findById(id);
-    if (!oldUser || oldUser.isDeleted) {
-        return next(new AppError("User not found", 404));
+    // ممنوع تعديل الصلاحيات من هذا الراوت نهائيًا
+    if (req.body.permissions !== undefined) {
+        return next(new AppError("لا يمكن تعديل الصلاحيات من هنا. استخدم المسار /permissions", 403));
     }
 
-    // البيانات الجديدة (بس اللي جاية في الـ body)
-    const updates = { ...req.body };
+    // ممنوع تغيير الـ role إلا للسوبر أدمن
+    if (req.body.role && req.user.role !== "super_admin") {
+        return next(new AppError("غير مسموح بتغيير نوع المستخدم", 403));
+    }
 
-    // === التحديث الجزئي الآمن (بس الحقول اللي جاية) ===
+    const oldUser = await User.findById(id);
+    if (!oldUser || oldUser.isDeleted) {
+        return next(new AppError("المستخدم غير موجود", 404));
+    }
+
     const updated = await User.findByIdAndUpdate(
         id,
-        { $set: updates },  // ← الأهم: $set مش تمرير الـ object مباشرة
+        { $set: req.body },
         { new: true, runValidators: true }
     );
 
-    logger.info(`User partially updated: ${id}`);
     res.json({ success: true, data: updated });
 });
 
@@ -155,7 +186,6 @@ export const getFilterOptions = async (req, res) => {
         throw new AppError("Internal Server Error", 500);
     }
 };
-
 
 export const exportUsersToExcel = catchAsync(async (req, res, next) => {
     // 1. قراءة الفلاتر من الـ body (نفس الفلاتر التي تستخدمها في GET)
@@ -244,4 +274,57 @@ export const exportUsersToExcel = catchAsync(async (req, res, next) => {
 
     await workbook.xlsx.write(res);
     res.end();
+});
+
+export const updateUserPermissions = catchAsync(async (req, res, next) => {
+    const { id } = req.params;
+    const currentUser = req.user;
+
+    // جلب المستخدم المستهدف
+    const targetUser = await User.findById(id).select("+permissions"); // + عشان يجيب الحقل حتى لو select: false
+    if (!targetUser || targetUser.isDeleted) {
+        return next(new AppError("المستخدم غير موجود", 404));
+    }
+
+    // ممنوع تعديل صلاحيات السوبر أدمن إلا من سوبر أدمن
+    if (targetUser.role === "super_admin" && currentUser.role !== "super_admin") {
+        return next(new AppError("لا يمكن تعديل صلاحيات السوبر أدمن", 403));
+    }
+
+    // ممنوع تعديل صلاحيات نفسك (أمان إضافي)
+    if (targetUser._id.toString() === currentUser._id.toString()) {
+        return next(new AppError("لا يمكنك تعديل صلاحيات حسابك الشخصي", 403));
+    }
+
+    const { permissions } = req.body;
+
+    if (!Array.isArray(permissions)) {
+        return next(new AppError("حقل permissions يجب أن يكون مصفوفة", 400));
+    }
+
+    // الأمان الأقوى: لا تسمح لأحد بمنح صلاحية لا يملكها
+    if (currentUser.role !== "super_admin") {
+        const unauthorized = permissions.some(perm => !hasPermission(currentUser, perm));
+        if (unauthorized) {
+            return next(new AppError("لا يمكنك منح صلاحية لا تملكها بنفسك", 403));
+        }
+    }
+
+    // تطبيع الصلاحيات (إضافة :read تلقائيًا)
+    const finalPermissions = normalizePermissions(permissions);
+
+    // تحديث الصلاحيات فقط
+    const updatedUser = await User.findByIdAndUpdate(
+        id,
+        { permissions: finalPermissions },
+        { new: true, runValidators: true }
+    ).select("fullName username role permissions avatar");
+
+    logger.info(`Permissions updated for user ${id} by ${currentUser.fullName} (${currentUser._id})`);
+
+    res.json({
+        success: true,
+        message: "تم تحديث الصلاحيات بنجاح",
+        data: updatedUser
+    });
 });

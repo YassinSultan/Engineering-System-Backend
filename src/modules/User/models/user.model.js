@@ -21,7 +21,6 @@ const userSchema = new mongoose.Schema(
         password: {
             type: String,
             required: true,
-            select: false, // لا يتم جلب الباسورد تلقائياً
             minlength: 6,
         },
 
@@ -39,9 +38,6 @@ const userSchema = new mongoose.Schema(
         branchId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Branch",
-            required: function () {
-                return this.role !== "super_admin"; // Fixed logic
-            },
         },
 
         permissions: {
