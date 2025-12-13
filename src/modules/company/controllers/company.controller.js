@@ -9,11 +9,14 @@ import { escapeRegExp } from "../../../utils/escapeRegExp.js";
 export const createCompany = catchAsync(async (req, res, next) => {
     const data = { ...req.body };
 
-    if (req.files.securityApprovalFile) {
-        data.securityApprovalFile = req.files.securityApprovalFile[0].path;
+    if (req.files?.securityApprovalFile?.[0]) {
+        const file = req.files.securityApprovalFile[0];
+        data.securityApprovalFile = `uploads/${file.filename}`;
     }
-    if (req.files.companyDocuments) {
-        data.companyDocuments = req.files.companyDocuments.map(f => f.path);
+    if (req.files?.companyDocuments?.length) {
+        data.companyDocuments = req.files.companyDocuments.map(
+            file => `uploads/${file.filename}`
+        );
     }
 
     const company = await Company.create(data);
