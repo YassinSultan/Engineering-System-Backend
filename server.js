@@ -14,6 +14,7 @@ import authRouter from "./src/modules/User/routes/auth.routes.js";
 import companyRouter from "./src/modules/company/routes/company.routes.js";
 import userRouter from "./src/modules/User/routes/user.routes.js";
 import profileRouter from "./src/modules/User/routes/profile.routes.js";
+import filesRouter from "./src/modules/files/routes/files.routes.js";
 import logger from "./src/utils/logger.js";
 import { branchFilter, protect } from "./src/middleware/auth.middleware.js";
 import { seedSuperAdmin } from "./src/config/seed.js";
@@ -46,6 +47,7 @@ app.use("/uploads", express.static("uploads"));
 app.use('/avatars', express.static('public/avatars'));
 
 // Routes
+app.use("/api/files", filesRouter);
 app.use("/api/companies", protect, branchFilter, companyRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/users", userRouter);
