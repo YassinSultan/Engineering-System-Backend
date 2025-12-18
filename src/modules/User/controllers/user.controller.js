@@ -6,6 +6,7 @@ import logger from "../../../utils/logger.js";
 import { normalizePermissions, hasPermission } from "../../../utils/permission.utils.js";
 import ExcelJS from "exceljs";
 export const createUser = catchAsync(async (req, res, next) => {
+    const user = req.user;
     const { role, ...rest } = req.body;
     const currentUser = req.user;
 
@@ -17,6 +18,7 @@ export const createUser = catchAsync(async (req, res, next) => {
     const newUser = await User.create({
         ...rest,
         role,
+        createdBy: user._id,
     });
 
     res.status(201).json({ success: true, data: newUser });
@@ -279,47 +281,78 @@ export const updateUserPermissions = catchAsync(async (req, res, next) => {
     const { id } = req.params;
     const currentUser = req.user;
 
-    // جلب المستخدم المستهدف
-    const targetUser = await User.findById(id).select("+permissions"); // + عشان يجيب الحقل حتى لو select: false
-    if (!targetUser || targetUser.isDeleted) {
-        return next(new AppError("المستخدم غير موجود", 404));
+    const targetUser = await User.findOne({
+        _id: id,
+        isDeleted: false
+    });
+
+    if (!targetUser) {
+        return next(new AppError("المستخدم غير موجود أو تم حذفه", 404));
     }
 
-    // ممنوع تعديل صلاحيات السوبر أدمن إلا من سوبر أدمن
-    if (targetUser.role === "super_admin" && currentUser.role !== "super_admin") {
-        return next(new AppError("لا يمكن تعديل صلاحيات السوبر أدمن", 403));
+    if (targetUser.role === "SUPER_ADMIN" && currentUser.role !== "SUPER_ADMIN") {
+        return next(new AppError("لا يمكن تعديل صلاحيات السوبر أدمن إلا من سوبر أدمن آخر", 403));
     }
 
-    // ممنوع تعديل صلاحيات نفسك (أمان إضافي)
     if (targetUser._id.toString() === currentUser._id.toString()) {
         return next(new AppError("لا يمكنك تعديل صلاحيات حسابك الشخصي", 403));
     }
 
-    const { permissions } = req.body;
+    let { permissions } = req.body;
 
     if (!Array.isArray(permissions)) {
         return next(new AppError("حقل permissions يجب أن يكون مصفوفة", 400));
     }
 
-    // الأمان الأقوى: لا تسمح لأحد بمنح صلاحية لا يملكها
-    if (currentUser.role !== "super_admin") {
-        const unauthorized = permissions.some(perm => !hasPermission(currentUser, perm));
-        if (unauthorized) {
-            return next(new AppError("لا يمكنك منح صلاحية لا تملكها بنفسك", 403));
+    if (permissions.length === 0) {
+        permissions = []; // مسموح فاضي
+    }
+
+    // تحويل الـ strings إلى objects إذا كانت strings (للتوافق مع الكود القديم)
+    const processedPermissions = permissions.map(perm => {
+        if (typeof perm === "string") {
+            return {
+                action: perm,
+                scope: "ALL",
+                units: []
+            };
+        }
+        // لو كائن، نتأكد من الحقول الأساسية
+        if (typeof perm === "object" && perm.action) {
+            return {
+                action: perm.action,
+                scope: perm.scope || "ALL",
+                units: perm.scope === "CUSTOM_UNITS" ? (perm.units || []) : []
+            };
+        }
+        throw new AppError("صيغة صلاحية غير صالحة", 400);
+    });
+
+    // التحقق من الأمان: لا يمكن منح صلاحية لا تملكها (إلا للسوبر أدمن)
+    if (currentUser.role !== "SUPER_ADMIN") {
+        // جلب صلاحيات المستخدم الحالي مع الـ permissions
+        const currentUserWithPerms = await User.findById(currentUser._id);
+
+        for (const perm of processedPermissions) {
+            if (!hasPermission(currentUserWithPerms, perm)) {
+                return next(new AppError("لا يمكنك منح صلاحية لا تملكها بنفسك", 403));
+            }
         }
     }
 
-    // تطبيع الصلاحيات (إضافة :read تلقائيًا)
-    const finalPermissions = normalizePermissions(permissions);
+    // تطبيع الصلاحيات (إضافة :read تلقائيًا إلخ)
+    const finalPermissions = normalizePermissions(processedPermissions);
 
-    // تحديث الصلاحيات فقط
+    // تحديث المستخدم
     const updatedUser = await User.findByIdAndUpdate(
         id,
         { permissions: finalPermissions },
         { new: true, runValidators: true }
-    ).select("fullName username role permissions avatar");
+    )
+        .select("fullNameArabic fullNameEnglish username role permissions avatar organizationalUnit")
+        .populate("organizationalUnit", "nameArabic nameEnglish");
 
-    logger.info(`Permissions updated for user ${id} by ${currentUser.fullName} (${currentUser._id})`);
+    logger.info(`Permissions updated for user ${targetUser.username} (${id}) by ${currentUser.username}`);
 
     res.json({
         success: true,

@@ -4,6 +4,7 @@ import { promisify } from "util";
 import User from "../modules/User/models/user.model.js";
 import { AppError } from "../utils/AppError.js";
 import { catchAsync } from "../utils/catchAsync.js";
+import { hasAnyPermission } from "../utils/permission.utils.js";
 
 // chick if user is logged in
 export const protect = catchAsync(async (req, res, next) => {

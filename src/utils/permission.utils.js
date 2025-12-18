@@ -4,27 +4,49 @@
  * تطبيع الصلاحيات: إضافة :read تلقائيًا إذا كان هناك :update أو :delete
  */
 export const normalizePermissions = (permissions = []) => {
-    const perms = new Set(permissions.map(p => p.action || p)); // دعم كلا الشكلين
+    // تحويل إلى Map عشان نتجنب التكرار مع الحفاظ على الكائن الكامل
+    const permMap = new Map();
 
+    permissions.forEach(perm => {
+        const action = typeof perm === "string" ? perm : perm.action;
+        // لو string قديم، نحوله إلى كائن قياسي
+        const fullPerm = typeof perm === "string"
+            ? { action: perm, scope: "ALL", units: [] }
+            : perm;
+
+        permMap.set(action, fullPerm);
+    });
+
+    // تحديد المجموعات اللي لازم نضيف لها read
     const groups = [
-        { prefix: "users:" },
-        { prefix: "companies:" },
-        { prefix: "branches:" },
-        { prefix: "reports:" },
-        { prefix: "settings:" },
-        // أضف باقي المجموعات هنا
+        "users:",
+        "companies:",
+        "branches:",
+        "reports:",
+        "settings:",
+        // أضف باقي prefixes هنا
     ];
 
-    groups.forEach(({ prefix }) => {
-        const hasUpdate = [...perms].some(p => p.startsWith(`${prefix}update`));
-        const hasDelete = [...perms].some(p => p.startsWith(`${prefix}delete`));
+    groups.forEach(prefix => {
+        const hasWriteAction = Array.from(permMap.keys()).some(action =>
+            action.startsWith(prefix) &&
+            (action.includes("create") || action.includes("update") || action.includes("delete"))
+        );
 
-        if (hasUpdate || hasDelete) {
-            perms.add(`${prefix}read`);
+        if (hasWriteAction) {
+            const readAction = `${prefix}read`;
+            if (!permMap.has(readAction)) {
+                permMap.set(readAction, {
+                    action: readAction,
+                    scope: "ALL",
+                    units: []
+                });
+            }
         }
     });
 
-    return Array.from(perms);
+    // رجع مصفوفة من الكائنات
+    return Array.from(permMap.values());
 };
 
 /**

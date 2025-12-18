@@ -56,56 +56,25 @@ export const createUnit = async (req, res, next) => {
 // Get Full Tree (Recursive)
 export const getUnitsTree = async (req, res, next) => {
     try {
-        const trees = await organizationalUnitModel.aggregate([
-            {
-                $match: { parent: null } // فقط الوحدات الرئيسية (جذور الشجرة)
-            },
-            {
-                $graphLookup: {
-                    from: "organizationalunits", // اسم المجموعة في قاعدة البيانات (عادة lowercase + plural)
-                    startWith: "$_id",
-                    connectFromField: "_id",
-                    connectToField: "parent",
-                    as: "children",
-                    maxDepth: 20, // حد أقصى للعمق (اختياري، لمنع مشاكل في الأشجار الدورية)
-                    // restrictSearchWithMatch: { } // يمكن إضافة فلتر إضافي إذا لزم
-                }
-            },
-            {
-                $sort: { name: 1 } // ترتيب الجذور حسب الاسم (اختياري)
-            },
-            {
-                $project: {
-                    name: 1,
-                    type: 1,
-                    parent: 1,
-                    path: 1,
-                    createdAt: 1,
-                    updatedAt: 1,
-                    children: {
-                        $map: {
-                            input: "$children",
-                            as: "child",
-                            in: {
-                                _id: "$$child._id",
-                                name: "$$child.name",
-                                type: "$$child.type",
-                                parent: "$$child.parent",
-                                path: "$$child.path",
-                                createdAt: "$$child.createdAt",
-                                updatedAt: "$$child.updatedAt",
-                                children: "$$child.children" // التكرار يبني الشجرة كاملة
-                            }
-                        }
-                    }
-                }
+        // جلب كل الوحدات مرتبة حسب الاسم
+        const units = await organizationalUnitModel.find().sort({ name: 1 }).lean();
+
+        // تحويل المصفوفة إلى Map لتسهيل الربط
+        const map = new Map();
+        units.forEach(unit => map.set(unit._id.toString(), { ...unit, children: [] }));
+
+        // بناء الشجرة
+        const roots = [];
+        units.forEach(unit => {
+            if (unit.parent) {
+                const parent = map.get(unit.parent.toString());
+                if (parent) parent.children.push(map.get(unit._id.toString()));
+            } else {
+                roots.push(map.get(unit._id.toString()));
             }
-        ]);
+        });
 
-        // إذا كنت تريد شجرة واحدة فقط (مثل افتراض وجود وحدة رئيسية واحدة)، يمكنك لفها في array
-        // أو إرجاع trees مباشرة إذا كان هناك أكثر من جذر
-
-        res.json({ success: true, data: trees });
+        res.json({ success: true, data: roots });
     } catch (error) {
         console.error("Error in getUnitsTree:", error);
         return next(new AppError("فشل في جلب الهيكل التنظيمي", 500));
