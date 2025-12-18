@@ -17,7 +17,7 @@ import {
 const router = express.Router();
 
 // إنشاء مستخدم
-router.post("/", protect, restrictTo("users:create"), createUser);
+router.post("/", protect, restrictTo("users:create", true), createUser);
 
 // تصدير إكسل
 router.post("/export", protect, restrictTo("users:export"), exportUsersToExcel);
