@@ -14,9 +14,10 @@ export const seedSuperAdmin = async () => {
 
         // أنشئ Super Admin جديد
         const superAdmin = new userModel({
-            fullName: "Super Admin",
-            mainUnit: "Admin Unit",
-            username: "superadmin",
+            fullNameArabic: "سوبر ادمن",
+            fullNameEnglish: "Super Admin",
+            phones: "0123456789",
+            username: "SuperAdmin",
             password: "123456",
             role: "super_admin",
         });

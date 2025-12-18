@@ -21,7 +21,7 @@ export const login = catchAsync(async (req, res, next) => {
     const token = jwt.sign(
         {
             id: user._id,
-            branchId: user.branchId,
+            organizationalUnit: user.organizationalUnit,
             permissions: user.permissions,
             role: user.role,
         },
@@ -44,6 +44,6 @@ export const assignPermissions = catchAsync(async (req, res, next) => {
 });
 
 export const getUserByToken = catchAsync(async (req, res, next) => {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id).populate("organizationalUnit");
     res.json({ success: true, data: user });
 });

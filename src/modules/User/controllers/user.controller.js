@@ -37,6 +37,7 @@ export const createUser = catchAsync(async (req, res, next) => {
 
 
 export const getUsers = async (req, res) => {
+    const currentUser = req.user;
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
@@ -53,7 +54,10 @@ export const getUsers = async (req, res) => {
             }
         }
 
-        const query = { isDeleted: false };
+        const query = {
+            isDeleted: false,
+            _id: { $ne: currentUser._id },
+        };
 
         if (search) {
             query.$text = { $search: search };
@@ -72,6 +76,8 @@ export const getUsers = async (req, res) => {
                 ? { score: { $meta: "textScore" } }
                 : { [sortBy]: sortOrder === "desc" ? -1 : 1 },
             lean: true,
+            populate: "organizationalUnit",
+
         };
 
         const result = await User.paginate(query, options);

@@ -3,11 +3,9 @@ import bcrypt from "bcryptjs";
 import mongoosePaginate from "mongoose-paginate-v2";
 const userSchema = new mongoose.Schema(
     {
-        fullName: { type: String, required: true, trim: true },
-        mainUnit: { type: String, required: true },
-        subUnit: { type: String, trim: true },
+        fullNameArabic: { type: String, required: true, trim: true },
+        fullNameEnglish: { type: String, required: true, trim: true },
         specialization: { type: String, trim: true },
-        office: { type: String, trim: true },
         phones: [String],
         username: {
             type: String,
@@ -35,9 +33,12 @@ const userSchema = new mongoose.Schema(
             default: "/avatars/user.png", // fallback
         },
 
-        branchId: {
+        organizationalUnit: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: "Branch",
+            ref: "OrganizationalUnit",
+            required: function () {
+                return this.role !== "super_admin";
+            },
         },
 
         permissions: {

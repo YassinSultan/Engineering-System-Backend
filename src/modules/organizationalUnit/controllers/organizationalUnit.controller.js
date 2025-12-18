@@ -165,6 +165,8 @@ export const deleteUnit = async (req, res, next) => {
             return next(new AppError("لا يمكن حذف وحدة لديها وحدات فرعية", 404));
         }
 
+        // !todo : check if unit has any users
+
         await organizationalUnitModel.findByIdAndDelete(id);
 
         res.json({ success: true, message: "تم حذف الوحدة", data: id });
