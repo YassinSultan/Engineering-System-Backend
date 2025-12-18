@@ -4,7 +4,6 @@ import { promisify } from "util";
 import User from "../modules/User/models/user.model.js";
 import { AppError } from "../utils/AppError.js";
 import { catchAsync } from "../utils/catchAsync.js";
-import { hasPermission } from "../utils/permission.utils.js";
 
 // chick if user is logged in
 export const protect = catchAsync(async (req, res, next) => {
@@ -28,34 +27,89 @@ export const protect = catchAsync(async (req, res, next) => {
     next();
 });
 
-// check if user has permission
-export const restrictTo = (...requiredPermissions) => {
-    return (req, res, next) => {
-        // req.user يتم تعيينه في protect middleware
+/**
+ * Middleware للتحقق من الصلاحيات مع مراعاة الـ scope والـ units
+ * 
+ * استخدام:
+ * restrictTo("companies:read")          → للعمليات التي لا تحتاج resource معين (مثل list عام أو create)
+ * restrictTo("companies:read", true)    → يتطلب استخراج unitId من params/body/query
+ * 
+ * @param {string|string[]} requiredActions
+ * @param {boolean} [requireResourceUnit=false] - هل نحتاج إلى unitId للـ resource؟
+ */
+export const restrictTo = (requiredActions, requireResourceUnit = false) => {
+    const actions = Array.isArray(requiredActions) ? requiredActions : [requiredActions];
+
+    return catchAsync(async (req, res, next) => {
         const user = req.user;
 
-        const allowed = requiredPermissions.some(perm =>
-            hasPermission(user, perm)
-        );
+        let resourceUnitId = null;
+
+        if (requireResourceUnit) {
+            // البحث عن unitId في الأماكن الشائعة
+            resourceUnitId = req.params.id || req.params.unitId || req.body.organizationalUnit || req.query.organizationalUnit;
+
+            if (!resourceUnitId) {
+                return next(new AppError("لا يمكن تحديد الوحدة التنظيمية للعملية", 400));
+            }
+        }
+
+        const allowed = hasAnyPermission(user, actions, resourceUnitId);
 
         if (!allowed) {
             return next(new AppError("ليس لديك صلاحية لتنفيذ هذا الإجراء", 403));
         }
 
         next();
-    };
+    });
 };
 
-// 
-export const branchFilter = (req, res, next) => {
-    if (req.user.role === "super_admin") return next(); // Super Admin sees all
+/**
+ * فلتر الوحدة التنظيمية (للمستخدمين العاديين)
+ */
+export const unitFilter = (modelField = "organizationalUnit") => {
+    return catchAsync(async (req, res, next) => {
+        if (req.user.role === "SUPER_ADMIN") return next();
 
-    // Inject branch filter into query
-    if (!req.query) req.query = {};
-    req.query.branchId = req.user.branchId;
+        const user = req.user;
+        if (!req.query) req.query = {};
 
-    // For body in create/update, set branchId
-    if (req.body) req.body.branchId = req.user.branchId;
+        // ابحث عن صلاحية read للـ resource الحالي (نستنتجها من الـ route لو عايزين، لكن دلوقتي نفترض إنها موجودة)
+        // أو نعتمد على إن الـ restrictTo هيمنع لو مفيش صلاحية أصلاً
 
-    next();
+        let allowedUnits = [user.organizationalUnit];
+
+        // ابحث عن أي صلاحية read لها CUSTOM_UNITS أو ALL
+        const readPerms = user.permissions.filter(p =>
+            p.action.endsWith(":read") || p.action.endsWith(":update") || p.action.endsWith(":delete")
+        );
+
+        for (const perm of readPerms) {
+            if (perm.scope === "ALL") {
+                return next(); // لو عنده ALL → مفيش فلتر خالص
+            }
+            if (perm.scope === "CUSTOM_UNITS") {
+                allowedUnits.push(...perm.units);
+            }
+        }
+
+        // إزالة التكرار
+        allowedUnits = [...new Set(allowedUnits.map(id => id.toString()))];
+
+        // تطبيق الفلتر
+        req.query[modelField] = { $in: allowedUnits };
+
+        // للإنشاء: اجبار اليوزر يضيف في قسمه فقط (اختياري)
+        if (req.method === "POST" || req.method === "PATCH") {
+            if (req.body && req.body[modelField]) {
+                if (!allowedUnits.includes(req.body[modelField].toString())) {
+                    return next(new AppError("لا يمكنك إضافة/تعديل في قسم غير مسموح لك", 403));
+                }
+            } else {
+                req.body[modelField] = user.organizationalUnit; // افتراضي قسمه
+            }
+        }
+
+        next();
+    });
 };

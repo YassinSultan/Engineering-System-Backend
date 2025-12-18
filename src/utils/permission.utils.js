@@ -4,7 +4,7 @@
  * تطبيع الصلاحيات: إضافة :read تلقائيًا إذا كان هناك :update أو :delete
  */
 export const normalizePermissions = (permissions = []) => {
-    const perms = new Set(permissions);
+    const perms = new Set(permissions.map(p => p.action || p)); // دعم كلا الشكلين
 
     const groups = [
         { prefix: "users:" },
@@ -16,12 +16,8 @@ export const normalizePermissions = (permissions = []) => {
     ];
 
     groups.forEach(({ prefix }) => {
-        const hasUpdate = [...perms].some(p =>
-            p === `${prefix}update` || p.startsWith(`${prefix}update:`)
-        );
-        const hasDelete = [...perms].some(p =>
-            p === `${prefix}delete` || p.startsWith(`${prefix}delete:`)
-        );
+        const hasUpdate = [...perms].some(p => p.startsWith(`${prefix}update`));
+        const hasDelete = [...perms].some(p => p.startsWith(`${prefix}delete`));
 
         if (hasUpdate || hasDelete) {
             perms.add(`${prefix}read`);
@@ -32,25 +28,39 @@ export const normalizePermissions = (permissions = []) => {
 };
 
 /**
- * التحقق من وجود صلاحية (يدعم sub-permissions)
- * مثال: hasPermission(user, "companies:update:updateAll")
+ * التحقق من صلاحية مع مراعاة الـ scope والـ units
+ * 
+ * @param {Object} user - كائن المستخدم
+ * @param {string} requiredAction - الصلاحية المطلوبة مثل "companies:read"
+ * @param {string|ObjectId} [resourceUnitId] - معرف الوحدة التنظيمية للـ resource (اختياري)
+ * @returns {boolean}
  */
-export const hasPermission = (user, requiredPerm) => {
-    // السوبر أدمن لديه كل الصلاحيات
-    if (user.role === "super_admin") return true;
+export const hasPermission = (user, requiredAction, resourceUnitId = null) => {
+    // Super Admin لديه كل الصلاحيات
+    if (user.role === "SUPER_ADMIN") return true;
 
-    // إذا كانت الصلاحية عامة (مثل companies:update)
-    if (user.permissions.includes(requiredPerm)) return true;
+    // البحث عن الصلاحية المطابقة
+    const matchingPerm = user.permissions.find(perm => perm.action === requiredAction);
 
-    // إذا كانت الصلاحية فرعية (مثل companies:update:updateAll)
-    // نتحقق إذا كان المستخدم لديه الصلاحية الأب أو الفرعية نفسها
-    const parts = requiredPerm.split(":");
-    if (parts.length === 3) {
-        const [module, action, subAction] = parts;
-        const parentPerm = `${module}:${action}`;
+    if (!matchingPerm) return false;
 
-        return user.permissions.includes(requiredPerm) ||
-            user.permissions.includes(parentPerm);
+    // إذا scope = ALL → مسموح دائمًا
+    if (matchingPerm.scope === "ALL") return true;
+
+    // إذا لم يكن هناك resourceUnitId (مثل عمليات عامة مثل create) → نعتمد على ALL أو OWN فقط إذا لزم
+    if (!resourceUnitId) {
+        // للعمليات التي لا ترتبط بوحدة معينة (مثل create أو list عام)، يمكن السماح فقط إذا ALL
+        return matchingPerm.scope === "ALL";
+    }
+
+    const resourceUnit = resourceUnitId.toString();
+
+    if (matchingPerm.scope === "OWN_UNIT") {
+        return user.organizationalUnit?.toString() === resourceUnit;
+    }
+
+    if (matchingPerm.scope === "CUSTOM_UNITS") {
+        return matchingPerm.units.some(unit => unit.toString() === resourceUnit);
     }
 
     return false;
@@ -59,7 +69,7 @@ export const hasPermission = (user, requiredPerm) => {
 /**
  * التحقق من عدة صلاحيات (أي واحدة تكفي)
  */
-export const hasAnyPermission = (user, permsArray) => {
-    if (user.role === "super_admin") return true;
-    return permsArray.some(perm => hasPermission(user, perm));
+export const hasAnyPermission = (user, permsArray, resourceUnitId = null) => {
+    if (user.role === "SUPER_ADMIN") return true;
+    return permsArray.some(perm => hasPermission(user, perm, resourceUnitId));
 };
