@@ -1,12 +1,21 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import mongoosePaginate from "mongoose-paginate-v2";
+
 const userSchema = new mongoose.Schema(
     {
         fullNameArabic: { type: String, required: true, trim: true },
         fullNameEnglish: { type: String, required: true, trim: true },
-        specialization: { type: String, trim: true },
+        specialization: {
+            type: String,
+            enum: ["CIVILIAN", "MILITARY"],
+            required: function () {
+                return this.role !== "SUPER_ADMIN";
+            },
+            trim: true
+        },
         phones: [String],
+
         username: {
             type: String,
             required: true,
@@ -20,83 +29,97 @@ const userSchema = new mongoose.Schema(
             type: String,
             required: true,
             minlength: 6,
+            select: false, // أمان إضافي: الـ password مش هيظهر أبدًا إلا بطلب صريح
         },
 
         role: {
             type: String,
-            enum: ["super_admin", "admin", "engineer", "user"],
-            default: "user",
+            enum: ["SUPER_ADMIN", "USER"],
+            default: "USER",
         },
 
         avatar: {
             type: String,
-            default: "/avatars/user.png", // fallback
+            default: "/avatars/user.png",
         },
 
         organizationalUnit: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "OrganizationalUnit",
             required: function () {
-                return this.role !== "super_admin";
+                return this.role !== "SUPER_ADMIN";
             },
         },
 
-        permissions: {
-            type: [String],
-            default: [],
+        permissions: [{
+            action: {
+                type: String,
+                required: true,
+                trim: true,
+                // مثال: "companies:create", "employees:read:own", إلخ
+            },
+            scope: {
+                type: String,
+                enum: ["OWN_UNIT", "CUSTOM_UNITS", "ALL"],
+                required: true
+            },
+            units: [{
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "OrganizationalUnit"
+            }]
+        }],
+        createdBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
             required: function () {
-                return this.role !== "super_admin"; // Fixed logic
+                return this.role !== "SUPER_ADMIN";
             },
         },
-
-        // Soft delete
         isDeleted: { type: Boolean, default: false },
+        deletedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User"
+        }
     },
     { timestamps: true }
 );
 
+// ==================== Validation ====================
+userSchema.path("permissions").validate(function (permissions) {
+    return permissions.every(perm => {
+        if (perm.scope === "CUSTOM_UNITS") {
+            return perm.units && perm.units.length > 0;
+        }
+        return !perm.units || perm.units.length === 0;
+    });
+}, "Invalid units array for the given permission scope");
+
+// ==================== Plugins ====================
 userSchema.plugin(mongoosePaginate);
 
-// Full-Text Search Index (أهم خطوة)
-userSchema.index({
-    fullName: "text",
-    mainUnit: "text",
-    subUnit: "text",
-    specialization: "text",
-    office: "text",
-    phones: "text",
-    username: "text",
-    role: "text",
-    branchId: "text",
-    permissions: "text"
-
-});
-// Virtual to check if user is super admin
+// ==================== Virtuals ====================
 userSchema.virtual("isSuperAdmin").get(function () {
-    return this.role === "super_admin";
+    return this.role === "SUPER_ADMIN";
 });
 
-// Auto-set avatar based on role (runs on save)
+// ==================== Pre-save Hooks ====================
 userSchema.pre("save", function (next) {
+    // Auto-set avatar بناءً على الدور
     const avatars = {
-        super_admin: "/avatars/super_admin.png",
-        admin: "/avatars/admin.png",
-        engineer: "/avatars/engineer.png",
-        user: "/avatars/user.png",
+        SUPER_ADMIN: "/avatars/super_admin.png",
+        USER: "/avatars/user.png",
     };
+    this.avatar = avatars[this.role] || "/avatars/user.png";
 
-    this.avatar = avatars[this.role] || avatars.user;
-
-    // Clean fields for super_admin
-    if (this.role === "super_admin") {
-        this.branchId = undefined;
+    // تنظيف الحقول غير الضرورية للـ SUPER_ADMIN
+    if (this.role === "SUPER_ADMIN") {
+        this.organizationalUnit = undefined;
         this.permissions = [];
     }
 
     next();
 });
 
-// Hash password before saving
 userSchema.pre("save", async function (next) {
     if (!this.isModified("password")) return next();
 
@@ -108,17 +131,23 @@ userSchema.pre("save", async function (next) {
     }
 });
 
-// Compare password method
+// ==================== Methods ====================
 userSchema.methods.comparePassword = async function (candidatePassword) {
     return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Optional: Hide sensitive fields when converting to JSON
 userSchema.methods.toJSON = function () {
     const user = this.toObject();
     delete user.password;
     delete user.__v;
     return user;
 };
+
+// ==================== Indexes ====================
+// لتحسين الأداء في الاستعلامات الشائعة
+userSchema.index({ role: 1 });
+userSchema.index({ organizationalUnit: 1 });
+userSchema.index({ isDeleted: 1 });
+userSchema.index({ role: 1, isDeleted: 1 }); // مركب مفيد جدًا
 
 export default mongoose.model("User", userSchema);

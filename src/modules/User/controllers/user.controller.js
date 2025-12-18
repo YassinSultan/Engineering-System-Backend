@@ -6,30 +6,17 @@ import logger from "../../../utils/logger.js";
 import { normalizePermissions, hasPermission } from "../../../utils/permission.utils.js";
 import ExcelJS from "exceljs";
 export const createUser = catchAsync(async (req, res, next) => {
-    let { permissions = [], role = "user", ...rest } = req.body;
+    const { role, ...rest } = req.body;
+    const currentUser = req.user;
 
     // سوبر أدمن فقط من ينشئ سوبر أدمن
-    if (role === "super_admin" && req.user.role !== "super_admin") {
+    if (role === "SUPER_ADMIN" && currentUser.role !== "SUPER_ADMIN") {
         return next(new AppError("غير مسموح بإنشاء سوبر أدمن", 403));
-    }
-
-    // تطبيع + منع منح صلاحيات أعلى
-    if (role !== "super_admin") {
-        if (req.user.role !== "super_admin") {
-            const unauthorized = permissions.some(p => !hasPermission(req.user, p));
-            if (unauthorized) {
-                return next(new AppError("لا يمكنك منح صلاحية لا تملكها", 403));
-            }
-        }
-        permissions = normalizePermissions(permissions);
-    } else {
-        permissions = [];
     }
 
     const newUser = await User.create({
         ...rest,
         role,
-        permissions
     });
 
     res.status(201).json({ success: true, data: newUser });

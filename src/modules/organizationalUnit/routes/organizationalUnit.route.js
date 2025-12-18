@@ -1,5 +1,5 @@
 import express from "express";
-import { createUnit, deleteUnit, getAllUnits, getChildrenUnits, getUnitById, getUnitsTree, moveUnit, updateUnit } from "../controllers/organizationalUnit.controller.js";
+import { createUnit, deleteUnit, getAllUnits, getChildrenUnits, getUnitById, getUnitsTree, updateUnit } from "../controllers/organizationalUnit.controller.js";
 
 
 const router = express.Router();
@@ -10,7 +10,6 @@ router.get("/tree", getUnitsTree);
 router.get("/:id", getUnitById);
 router.get("/children/:parentId", getChildrenUnits);
 router.put("/:id", updateUnit);
-router.patch("/:id/move", moveUnit);
 router.delete("/:id", deleteUnit);
 
 export default router;
