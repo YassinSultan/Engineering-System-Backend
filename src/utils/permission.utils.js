@@ -53,32 +53,34 @@ export const normalizePermissions = (permissions = []) => {
  * - لو resourceUnitId === null (عمليات عامة: list, create, menu...) → مسموح بأي scope
  * - لو resourceUnitId موجود → يتم التحقق بدقة حسب ALL / OWN_UNIT / CUSTOM_UNITS
  */
-export const hasPermission = (user, requiredAction, resourceUnitId = null) => {
+export const hasPermission = async (user, requiredAction, resourceUnitId = null) => {
     if (!user) return false;
-
-    // Super Admin لديه كل الصلاحيات
     if (user.role === "SUPER_ADMIN") return true;
 
     const matchingPerm = user.permissions.find(perm => perm.action === requiredAction);
     if (!matchingPerm) return false;
 
-    // لو العملية عامة (مثل جلب قائمة أو إنشاء) → نسمح بأي scope
     if (resourceUnitId === null) {
-        return true; // عنده الصلاحية بأي scope → مسموح يدخل الـ endpoint
+        return true; // عمليات عامة
     }
 
-    // لو العملية على resource معين → تحقق دقيق
     if (matchingPerm.scope === "ALL") return true;
 
-    const resourceUnitStr = resourceUnitId.toString();
-    const userUnitStr = user.organizationalUnit?._id?.toString() || user.organizationalUnit?.toString();
+    const userUnitId = user.organizationalUnit?._id || user.organizationalUnit;
 
     if (matchingPerm.scope === "OWN_UNIT") {
-        return userUnitStr === resourceUnitStr;
+        return userUnitId.toString() === resourceUnitId.toString();
     }
 
     if (matchingPerm.scope === "CUSTOM_UNITS") {
-        return matchingPerm.units.some(unit => unit.toString() === resourceUnitStr);
+        return matchingPerm.units.some(unit => unit.toString() === resourceUnitId.toString());
+    }
+
+    if (matchingPerm.scope === "OWN_UNIT_AND_CHILDREN") {
+        const resourceUnit = await OrganizationalUnit.findById(resourceUnitId).select('path');
+        if (!resourceUnit) return false;
+
+        return resourceUnit.path.some(p => p.toString() === userUnitId.toString());
     }
 
     return false;

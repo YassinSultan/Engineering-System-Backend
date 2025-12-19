@@ -60,7 +60,7 @@ const userSchema = new mongoose.Schema(
             },
             scope: {
                 type: String,
-                enum: ["OWN_UNIT", "CUSTOM_UNITS", "ALL"],
+                enum: ["OWN_UNIT", "CUSTOM_UNITS", "OWN_UNIT_AND_CHILDREN", "ALL"],
                 required: true
             },
             units: [{
