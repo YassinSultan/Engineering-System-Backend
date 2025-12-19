@@ -1,7 +1,7 @@
 // routes/user.routes.js
 
 import express from "express";
-import { protect, restrictTo } from "../../../middleware/auth.middleware.js";
+import { protect, restrictTo, unitFilter } from "../../../middleware/auth.middleware.js";
 import {
     createUser,
     getUser,
@@ -17,18 +17,18 @@ import {
 const router = express.Router();
 
 // إنشاء مستخدم
-router.post("/", protect, restrictTo("users:create", true), createUser);
+router.post("/", restrictTo("users:create", true), createUser);
 
 // تصدير إكسل
-router.post("/export", protect, restrictTo("users:export"), exportUsersToExcel);
+router.post("/export", restrictTo("users:export"), unitFilter("users:read"), exportUsersToExcel);
 
 // جلب المستخدمين + فلترة
-router.get("/", protect, restrictTo("users:read"), getUsers);
+router.get("/", restrictTo("users:read"), unitFilter("users:read"), getUsers);
 router.get("/filter/:field", protect, restrictTo("users:read"), getFilterOptions);
-router.get("/:id", protect, restrictTo("users:read"), getUser);
+router.get("/:id", protect, restrictTo("users:read", true), getUser);
 
 // تعديل بيانات المستخدم العادية (الاسم، التليفون، الوحدة...)
-router.patch("/:id", protect, restrictTo("users:update"), updateUser);
+router.patch("/:id", protect, restrictTo("users:update", true), updateUser);
 
 // جديد: راوت منفصل ومحمي جدًا لتعديل الصلاحيات فقط
 router.patch(
@@ -39,7 +39,7 @@ router.patch(
 );
 
 // الحذف
-router.delete("/:id", protect, restrictTo("users:delete"), deleteUser);
-router.delete("/hard/:id", protect, restrictTo("users:delete"), hardDeleteUser);
+router.delete("/:id", protect, restrictTo("users:delete", true), deleteUser);
+router.delete("/hard/:id", protect, restrictTo("users:delete", true), hardDeleteUser);
 
 export default router;

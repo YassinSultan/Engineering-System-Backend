@@ -6,19 +6,39 @@ import logger from "../../../utils/logger.js";
 import { normalizePermissions, hasPermission } from "../../../utils/permission.utils.js";
 import ExcelJS from "exceljs";
 export const createUser = catchAsync(async (req, res, next) => {
-    const user = req.user;
-    const { role, ...rest } = req.body;
     const currentUser = req.user;
+    const { role, organizationalUnit, ...rest } = req.body;
 
     // سوبر أدمن فقط من ينشئ سوبر أدمن
     if (role === "SUPER_ADMIN" && currentUser.role !== "SUPER_ADMIN") {
         return next(new AppError("غير مسموح بإنشاء سوبر أدمن", 403));
     }
 
+    // جلب صلاحية الـ create
+    const createPerm = currentUser.permissions.find(p => p.action === "users:create");
+
+    let finalUnit = organizationalUnit;
+
+    if (createPerm && createPerm.scope !== "ALL") {
+        if (createPerm.scope === "OWN_UNIT") {
+            finalUnit = currentUser.organizationalUnit;
+        } else if (createPerm.scope === "CUSTOM_UNITS") {
+            if (!createPerm.units.includes(organizationalUnit)) {
+                return next(new AppError("لا يمكنك إنشاء مستخدم في وحدة غير مسموحة لك", 403));
+            }
+        }
+
+        // اجبار الوحدة إذا كانت OWN_UNIT
+        if (createPerm.scope === "OWN_UNIT" && organizationalUnit && organizationalUnit !== currentUser.organizationalUnit.toString()) {
+            return next(new AppError("لا يمكنك إنشاء مستخدم خارج وحدتك", 403));
+        }
+    }
+
     const newUser = await User.create({
         ...rest,
-        role,
-        createdBy: user._id,
+        role: role || "USER",
+        organizationalUnit: finalUnit || currentUser.organizationalUnit, // fallback
+        createdBy: currentUser._id,
     });
 
     res.status(201).json({ success: true, data: newUser });
@@ -48,13 +68,34 @@ export const getUsers = async (req, res) => {
             _id: { $ne: currentUser._id },
         };
 
+        // === الجديد: إضافة فلتر الوحدة التنظيمية تلقائيًا ===
+        if (req.organizationalUnitFilter) {
+            query.organizationalUnit = req.organizationalUnitFilter;
+        }
+
         if (search) {
             query.$text = { $search: search };
         }
 
+        // الفلاتر اليدوية من الفرونت
         Object.keys(filters).forEach((field) => {
             if (filters[field]) {
-                query[field] = { $regex: new RegExp(escapeRegExp(filters[field]), "i") };
+                // خاص: لو الفيلد organizationalUnit، نتأكد إنه داخل المسموح
+                if (field === "organizationalUnit") {
+                    // لو المستخدم بيحاول يفلتر على وحدة مش مسموحة → نمنعه
+                    if (req.organizationalUnitFilter) {
+                        const allowed = req.organizationalUnitFilter.$in;
+                        if (!allowed.includes(filters[field])) {
+                            return res.status(403).json({
+                                success: false,
+                                message: "غير مصرح لك بالبحث في هذه الوحدة"
+                            });
+                        }
+                    }
+                    query[field] = filters[field];
+                } else {
+                    query[field] = { $regex: new RegExp(escapeRegExp(filters[field]), "i") };
+                }
             }
         });
 
@@ -66,7 +107,6 @@ export const getUsers = async (req, res) => {
                 : { [sortBy]: sortOrder === "desc" ? -1 : 1 },
             lean: true,
             populate: "organizationalUnit",
-
         };
 
         const result = await User.paginate(query, options);
@@ -81,7 +121,7 @@ export const getUsers = async (req, res) => {
         });
     } catch (err) {
         console.error(err);
-        new AppError("Internal Server Error", 500);
+        res.status(500).json({ success: false, message: "Internal Server Error" });
     }
 };
 
@@ -108,7 +148,24 @@ export const updateUser = catchAsync(async (req, res, next) => {
     if (!oldUser || oldUser.isDeleted) {
         return next(new AppError("المستخدم غير موجود", 404));
     }
+    if (req.body.organizationalUnit) {
+        const updatePerm = currentUser.permissions.find(p => p.action === "users:update");
 
+        if (updatePerm && updatePerm.scope !== "ALL") {
+            const newUnit = req.body.organizationalUnit;
+            const oldUnit = oldUser.organizationalUnit.toString();
+
+            if (updatePerm.scope === "OWN_UNIT") {
+                if (newUnit !== currentUser.organizationalUnit.toString()) {
+                    return next(new AppError("لا يمكنك نقل المستخدم لوحدة خارج وحدتك", 403));
+                }
+            } else if (updatePerm.scope === "CUSTOM_UNITS") {
+                if (!updatePerm.units.some(u => u.toString() === newUnit)) {
+                    return next(new AppError("لا يمكنك نقل المستخدم لوحدة غير مسموحة لك", 403));
+                }
+            }
+        }
+    }
     const updated = await User.findByIdAndUpdate(
         id,
         { $set: req.body },

@@ -68,48 +68,46 @@ export const restrictTo = (requiredActions, requireResourceUnit = false) => {
 /**
  * فلتر الوحدة التنظيمية (للمستخدمين العاديين)
  */
-export const unitFilter = (modelField = "organizationalUnit") => {
+export const unitFilter = (requiredAction) => {
     return catchAsync(async (req, res, next) => {
-        if (req.user.role === "SUPER_ADMIN") return next();
-
         const user = req.user;
-        if (!req.query) req.query = {};
 
-        // ابحث عن صلاحية read للـ resource الحالي (نستنتجها من الـ route لو عايزين، لكن دلوقتي نفترض إنها موجودة)
-        // أو نعتمد على إن الـ restrictTo هيمنع لو مفيش صلاحية أصلاً
+        // SUPER_ADMIN يشوف الكل
+        if (user.role === "SUPER_ADMIN") return next();
 
-        let allowedUnits = [user.organizationalUnit];
+        const readPerm = user.permissions.find(p => p.action === requiredAction);
 
-        // ابحث عن أي صلاحية read لها CUSTOM_UNITS أو ALL
-        const readPerms = user.permissions.filter(p =>
-            p.action.endsWith(":read") || p.action.endsWith(":update") || p.action.endsWith(":delete")
-        );
-
-        for (const perm of readPerms) {
-            if (perm.scope === "ALL") {
-                return next(); // لو عنده ALL → مفيش فلتر خالص
-            }
-            if (perm.scope === "CUSTOM_UNITS") {
-                allowedUnits.push(...perm.units);
-            }
+        // لو مفيش صلاحية read → restrictTo المفروض منع، بس للأمان
+        if (!readPerm) {
+            return next(new AppError("غير مصرح لك برؤية أي بيانات", 403));
         }
 
-        // إزالة التكرار
+        let allowedUnits = [];
+
+        if (readPerm.scope === "ALL") {
+            return next(); // مفيش فلتر
+        }
+
+        if (readPerm.scope === "OWN_UNIT") {
+            const unitId = user.organizationalUnit?._id || user.organizationalUnit;
+            if (unitId) allowedUnits.push(unitId);
+        }
+
+        if (readPerm.scope === "CUSTOM_UNITS") {
+            allowedUnits.push(...readPerm.units);
+        }
+
+        if (allowedUnits.length === 0) {
+            // نرجع قائمة فاضية بدل خطأ
+            req.organizationalUnitFilter = { $in: [] };
+            return next();
+        }
+
+        // إزالة التكرار وتحويل لـ string لو لازم
         allowedUnits = [...new Set(allowedUnits.map(id => id.toString()))];
 
-        // تطبيق الفلتر
-        req.query[modelField] = { $in: allowedUnits };
-
-        // للإنشاء: اجبار اليوزر يضيف في قسمه فقط (اختياري)
-        if (req.method === "POST" || req.method === "PATCH") {
-            if (req.body && req.body[modelField]) {
-                if (!allowedUnits.includes(req.body[modelField].toString())) {
-                    return next(new AppError("لا يمكنك إضافة/تعديل في قسم غير مسموح لك", 403));
-                }
-            } else {
-                req.body[modelField] = user.organizationalUnit; // افتراضي قسمه
-            }
-        }
+        // نحط الفلتر في مكان خاص عشان الـ controller يستخدمه
+        req.organizationalUnitFilter = { $in: allowedUnits.map(id => id) };
 
         next();
     });
