@@ -18,7 +18,7 @@ export const seedSuperAdmin = async () => {
             fullNameEnglish: process.env.SUPER_ADMIN_ENGLISH_NAME || "Super Admin",
             phones: (process.env.SUPER_ADMIN_PHONES || "01234567890").split(",").map(p => p.trim()),
             username: (process.env.SUPER_ADMIN_USERNAME || "superadmin").toLowerCase(),
-            password: process.env.SUPER_ADMIN_PASSWORD || "TempStrongPassword123!", // كلمة سر قوية افتراضية
+            password: process.env.SUPER_ADMIN_PASSWORD || "12345678", // كلمة سر قوية افتراضية
             role: "SUPER_ADMIN",
         };
 
