@@ -46,6 +46,7 @@ export const createUser = catchAsync(async (req, res, next) => {
 
 
 export const getUsers = async (req, res) => {
+    console.log(req.organizationalUnitFilter);
     const currentUser = req.user;
     try {
         const page = parseInt(req.query.page) || 1;
@@ -67,7 +68,6 @@ export const getUsers = async (req, res) => {
             isDeleted: false,
             _id: { $ne: currentUser._id },
         };
-
         // === الجديد: إضافة فلتر الوحدة التنظيمية تلقائيًا ===
         if (req.organizationalUnitFilter) {
             query.organizationalUnit = req.organizationalUnitFilter;

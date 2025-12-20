@@ -5,7 +5,10 @@ import { AppError } from "../../../utils/AppError.js";
 import logger from "../../../utils/logger.js";
 
 export const getUserByToken = catchAsync(async (req, res, next) => {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id).populate("organizationalUnit").populate({
+        path: "permissions.units",
+        model: "OrganizationalUnit" // optional لو Mongoose مش قادر يكتشف الـ ref
+    });;
     if (!user || user.isDeleted) return next(new AppError("User not found", 404));
     res.json({ success: true, data: user });
 });

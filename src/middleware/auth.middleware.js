@@ -6,6 +6,7 @@ import { AppError } from "../utils/AppError.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import { hasAnyPermission } from "../utils/permission.utils.js";
 import organizationalUnitModel from "../modules/organizationalUnit/models/organizationalUnit.model.js";
+import mongoose from "mongoose";
 
 // chick if user is logged in
 export const protect = catchAsync(async (req, res, next) => {
