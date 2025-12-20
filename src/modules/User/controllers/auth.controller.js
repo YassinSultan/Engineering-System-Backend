@@ -10,7 +10,10 @@ export const login = catchAsync(async (req, res, next) => {
         return next(new AppError("اسم المستخدم وكلمة المرور مطلوبة", 400));
     }
 
-    const user = await User.findOne({ username }).select("+password");
+    const user = await User.findOne({ username }).select('+password').populate({
+        path: 'organizationalUnit',
+        select: 'path name',
+    });
     if (!user || !(await user.comparePassword(password))) {
         return next(new AppError("اسم المستخدم او كلمة المرور غير صحيح", 401));
     }
@@ -29,7 +32,14 @@ export const login = catchAsync(async (req, res, next) => {
         { expiresIn: process.env.JWT_EXPIRES_IN }
     );
 
-    res.json({ success: true, token });
+    res.json({
+        success: true,
+        token,
+        user: {
+            ...user.toJSON(),
+            // تأكد إن path موجود
+        }
+    });
 });
 
 // Super Admin only: assign permissions
