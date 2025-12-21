@@ -16,6 +16,8 @@ import userRouter from "./src/modules/User/routes/user.routes.js";
 import profileRouter from "./src/modules/User/routes/profile.routes.js";
 import filesRouter from "./src/modules/files/routes/files.routes.js";
 import organizationalUnitRouter from "./src/modules/organizationalUnit/routes/organizationalUnit.route.js";
+import projectRouter from "./src/modules/project/routes/project.route.js";
+import ownerEntityRouter from "./src/modules/ownerEntity/routes/ownerEntity.route.js";
 import logger from "./src/utils/logger.js";
 import { protect } from "./src/middleware/auth.middleware.js";
 import { seedSuperAdmin } from "./src/config/seed.js";
@@ -56,6 +58,11 @@ app.use("/api/auth", authRouter);
 app.use("/api/users", protect, userRouter);
 app.use("/api/profile", protect, profileRouter);
 app.use("/api/units", protect, organizationalUnitRouter);
+app.use("/api/projects", protect, projectRouter);
+app.use("/api/owner-entity", protect, ownerEntityRouter);
+app.use("*", (req, res) => {
+    res.status(404).json({ success: false, message: "Route not found" });
+});
 
 // Global error handler
 app.use(errorHandler);
