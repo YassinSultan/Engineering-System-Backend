@@ -22,6 +22,7 @@ export const createProject = catchAsync(async (req, res, next) => {
             startDate: new Date(body.startDate),
             location: body.location,
             landArea: Number(body.landArea),
+            organizationalUnit: body.organizationalUnit,
             createdBy: currentUser._id,
         };
 
@@ -76,5 +77,54 @@ export const createProject = catchAsync(async (req, res, next) => {
     } catch (err) {
         console.log(err);
         return next(new AppError(err.errors, 400));
+    }
+});
+
+// get all projects
+export const getAllProjects = catchAsync(async (req, res, next) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const search = req.query.search || "";
+        const sortBy = req.query.sortBy || "createdAt";
+        const sortOrder = req.query.sortOrder || "desc";
+        let filters = {};
+        if (req.query.filters) {
+            try {
+                filters = JSON.parse(req.query.filters);
+            } catch (e) {
+                return res.status(400).json({ success: false, message: "Invalid filters format" });
+            }
+        }
+        const query = { isDeleted: false };
+        if (search) {
+            query.$text = { $search: search };
+        }
+        Object.keys(filters).forEach((field) => {
+            if (filters[field]) {
+                query[field] = { $regex: new RegExp(escapeRegExp(filters[field]), "i") };
+            }
+        });
+        const options = {
+            page,
+            limit,
+            sort: search
+                ? { score: { $meta: "textScore" } }
+                : { [sortBy]: sortOrder === "desc" ? -1 : 1 },
+            lean: true,
+        };
+        const projects = await ProjectModel.paginate(query, options);
+        res.status(200).json({
+            success: true,
+            data: projects.docs,
+            total: projects.totalDocs,
+            limit: projects.limit,
+            page: projects.page,
+            totalPages: projects.totalPages,
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: "Server error" });
     }
 });

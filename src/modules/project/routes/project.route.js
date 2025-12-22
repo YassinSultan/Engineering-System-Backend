@@ -1,5 +1,5 @@
 import express from "express";
-import { createProject } from "../controllers/project.controller.js";
+import { createProject, getAllProjects } from "../controllers/project.controller.js";
 import { restrictTo } from "../../../middleware/auth.middleware.js";
 import { upload } from "../../../middleware/upload.js";
 
@@ -11,8 +11,9 @@ const cpUpload = upload.fields([
 ]);
 
 const router = express.Router();
-// إنشاء مستخدم
+
 router.post("/", cpUpload, createProject);
+router.get("/", restrictTo("projects:read"), getAllProjects);
 
 
 export default router;
