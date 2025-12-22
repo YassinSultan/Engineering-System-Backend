@@ -19,4 +19,4 @@ const ownerEntitySchema = new mongoose.Schema({
 }, { timestamps: true });
 
 ownerEntitySchema.plugin(mongoosePaginate);
-export default mongoose.model("OwningEntity", ownerEntitySchema);
+export default mongoose.model("OwnerEntity", ownerEntitySchema);
