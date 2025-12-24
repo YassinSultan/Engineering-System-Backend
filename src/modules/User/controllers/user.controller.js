@@ -5,6 +5,7 @@ import { escapeRegExp } from "../../../utils/escapeRegExp.js";
 import logger from "../../../utils/logger.js";
 import { normalizePermissions, hasPermission } from "../../../utils/permission.utils.js";
 import ExcelJS from "exceljs";
+import { populate } from "dotenv";
 export const createUser = catchAsync(async (req, res, next) => {
     const currentUser = req.user;
     const { role, organizationalUnit, ...rest } = req.body;
@@ -125,9 +126,21 @@ export const getUsers = async (req, res) => {
     }
 };
 
-export const getUser = catchAsync(async (req, res) => {
-    const user = await User.findById(req.params.id);
+export const getUser = catchAsync(async (req, res, next) => {
+    const user = await User.findById(req.params.id)
+        .populate({
+            path: "organizationalUnit",
+            select: "name path",
+            populate: {
+                path: "path",
+                select: "name",
+            },
+        })
+        .populate("createdBy", "name")
+        .populate("permissions.units", "name");
+
     if (!user) return next(new AppError("User not found", 404));
+
     res.json({ success: true, data: user });
 });
 

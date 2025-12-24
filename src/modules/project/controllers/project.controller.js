@@ -1,5 +1,6 @@
 import { AppError } from "../../../utils/AppError.js";
 import { catchAsync } from "../../../utils/catchAsync.js";
+import { escapeRegExp } from "../../../utils/escapeRegExp.js";
 import ProjectModel from "../models/Project.model.js";
 
 
@@ -76,7 +77,12 @@ export const createProject = catchAsync(async (req, res, next) => {
 
     } catch (err) {
         console.log(err);
-        return next(new AppError(err.errors, 400));
+        return next(
+            new AppError(
+                err.message || "Project creation failed",
+                400
+            )
+        );
     }
 });
 
@@ -89,6 +95,7 @@ export const getAllProjects = catchAsync(async (req, res, next) => {
         const sortBy = req.query.sortBy || "createdAt";
         const sortOrder = req.query.sortOrder || "desc";
         let filters = {};
+        console.log(req.query.filters);
         if (req.query.filters) {
             try {
                 filters = JSON.parse(req.query.filters);
@@ -124,6 +131,10 @@ export const getAllProjects = catchAsync(async (req, res, next) => {
         });
 
     } catch (err) {
+        // handle Mongopose error
+        if (err.code === 11000) {
+            return res.status(400).json({ success: false, message: "Project already exists" });
+        }
         console.error(err);
         res.status(500).json({ success: false, message: "Server error" });
     }
