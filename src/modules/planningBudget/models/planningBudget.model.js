@@ -1,11 +1,11 @@
 import mongoose from "mongoose";
-import { AppError } from "../../../utils/AppError";
+import { AppError } from "../../../utils/AppError.js";
 
 const planningBudgetSchema = new mongoose.Schema(
     {
         /* =======================
-       Relations
-    ======================= */
+            Relations
+            ======================= */
         protocol: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Protocol",
