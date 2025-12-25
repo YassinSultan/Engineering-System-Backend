@@ -36,17 +36,17 @@ const protocolSchema = new mongoose.Schema(
             الموازنة التخطيطية & التدفقات المالية
          ======================= */
         //  الموازنة التخطيطية
-        planningBudget: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "PlanningBudget",
-        },
-        // التدفقات المالية
-        cashFlows: [
-            {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: "CashFlow",
-            },
-        ],
+        // planningBudget: {
+        //     type: mongoose.Schema.Types.ObjectId,
+        //     ref: "PlanningBudget",
+        // },
+        // // التدفقات المالية
+        // cashFlows: [
+        //     {
+        //         type: mongoose.Schema.Types.ObjectId,
+        //         ref: "CashFlow",
+        //     },
+        // ],
 
         /* =======================
             System
@@ -62,9 +62,38 @@ const protocolSchema = new mongoose.Schema(
         },
 
     },
-    { timestamps: true }
+    {
+        timestamps: true,
+        toJSON: { virtuals: true },
+        toObject: { virtuals: true }
+    }
 );
+protocolSchema.virtual("planningBudget", {
+    ref: "PlanningBudget",
+    localField: "_id",
+    foreignField: "protocol",
+    justOne: true, // مهم جدًا
+});
+protocolSchema.virtual("cashFlows", {
+    ref: "CashFlow",
+    localField: "_id",
+    foreignField: "protocol",
+});
 
+protocolSchema.pre("save", async function (next) {
+    const Project = mongoose.model("Project");
+    const project = await Project.findById(this.project);
+
+    if (!project) {
+        return next(new Error("لا يوجد مشروع"));
+    }
+
+    if (project.contractingParty !== "CIVILIAN") {
+        return next(new Error("لا يمكن اضافة بروتوكل الا لمشروع جهة مدنية"));
+    }
+
+    next();
+});
 /* =======================
    Indexes
 ======================= */
