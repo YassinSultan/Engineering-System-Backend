@@ -1,5 +1,5 @@
 import express from "express";
-import { createProject, getAllProjects } from "../controllers/project.controller.js";
+import { createProject, getAllProjects, getSpecificProject } from "../controllers/project.controller.js";
 import { restrictTo } from "../../../middleware/auth.middleware.js";
 import { upload } from "../../../middleware/upload.js";
 
@@ -14,6 +14,7 @@ const router = express.Router();
 
 router.post("/", cpUpload, createProject);
 router.get("/", restrictTo("projects:read"), getAllProjects);
+router.get("/:id", restrictTo("projects:read"), getSpecificProject);
 
 
 export default router;

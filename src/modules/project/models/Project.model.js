@@ -6,12 +6,6 @@ const projectSchema = new mongoose.Schema(
         /* =======================
         Relations
         ======================= */
-        protocol: [{
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Protocol",
-            required: true,
-            index: true,
-        }],
         // الوحدة المنفذة
         // ! يمكن اضافة اكثر من وحدة
         organizationalUnit: [{
@@ -135,7 +129,7 @@ const projectSchema = new mongoose.Schema(
         // الجهة المالكة
         ownerEntity: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: "OwningEntity",
+            ref: "OwnerEntity",
             required: function () {
                 return this.contractingParty === "CIVILIAN";
             }
@@ -155,8 +149,18 @@ const projectSchema = new mongoose.Schema(
             default: false
         },
     },
-    { timestamps: true }
+    {
+        timestamps: true,
+        toJSON: { virtuals: true },
+        toObject: { virtuals: true }
+    }
 );
+projectSchema.virtual("protocols", {
+    ref: "Protocol",
+    localField: "_id",
+    foreignField: "project",
+});
+
 
 projectSchema.plugin(mongoosePaginate);
 /* =======================
