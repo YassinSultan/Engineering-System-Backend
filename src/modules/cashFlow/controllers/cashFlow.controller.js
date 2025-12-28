@@ -22,3 +22,25 @@ export const createCashFlow = catchAsync(async (req, res, next) => {
         return next(new AppError(error.message, 500));
     }
 });
+
+
+export const updateCashFlow = catchAsync(async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const updates = { ...req.body };
+        const updated = await cashFlowModel.findByIdAndUpdate(id, updates, { new: true, runValidators: true });
+        res.json({ success: true, data: updated });
+    } catch (error) {
+        return next(new AppError(error.message, 500));
+    }
+});
+
+export const hardDeleteCashFlow = catchAsync(async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const deleted = await cashFlowModel.findByIdAndDelete(id);
+        res.json({ success: true, data: deleted });
+    } catch (error) {
+        return next(new AppError(error.message, 500));
+    }
+});

@@ -1,5 +1,8 @@
+
 import { AppError } from "../../../utils/AppError.js";
 import { catchAsync } from "../../../utils/catchAsync.js";
+import { deleteFiles } from "../../../utils/deleteFiles.js";
+import logger from "../../../utils/logger.js";
 import ProjectModel from "../../project/models/Project.model.js";
 import ProtocolModel from "../models/Protocol.model.js";
 
@@ -20,7 +23,6 @@ export const createProtocol = catchAsync(async (req, res, next) => {
         const file = req.files.file[0];
         data.file = file.relativePath;
     }
-    console.log(data);
     const protocol = await ProtocolModel.create({
         ...data,
         createdBy: curentUser._id
@@ -33,4 +35,41 @@ export const getProtocols = catchAsync(async (req, res, next) => {
         .populate("planningBudget")
         .populate("cashFlows");
     res.json({ success: true, data: protocols });
+});
+
+export const getSpecificProtocol = catchAsync(async (req, res, next) => {
+    const protocol = await ProtocolModel.findById(req.params.id)
+        .populate("planningBudget")
+        .populate("cashFlows");
+    res.json({ success: true, data: protocol });
+});
+
+export const deleteProtocol = catchAsync(async (req, res, next) => {
+    const protocol = await ProtocolModel.findByIdAndDelete(req.params.id);
+    res.json({ success: true, data: protocol });
+});
+
+export const updateProtocol = catchAsync(async (req, res, next) => {
+    const { id } = req.params;
+    const oldProtocol = await ProtocolModel.findById(id);
+    if (!oldProtocol || oldProtocol.isDeleted) {
+        return next(new AppError("Protocol not found", 404));
+    }
+
+    const updates = { ...req.body };
+    if (req.files?.file) {
+        updates.file = req.files.file[0].relativePath;
+        if (oldProtocol.file) {
+            deleteFiles([oldProtocol.file]);
+        }
+    }
+    // === التحديث الجزئي الآمن (بس الحقول اللي جاية) ===
+    const updated = await ProtocolModel.findByIdAndUpdate(
+        id,
+        { $set: updates },  // ← الأهم: $set مش تمرير الـ object مباشرة
+        { new: true, runValidators: true }
+    );
+
+    logger.info(`Protocol partially updated: ${id}`);
+    res.json({ success: true, data: updated });
 });
