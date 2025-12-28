@@ -30,7 +30,6 @@ const projectSchema = new mongoose.Schema(
             type: String,
             enum: ["CIVILIAN", "MILITARY", "BUDGET"],
             required: true,
-            index: true,
         },
         status: {
             type: String,
