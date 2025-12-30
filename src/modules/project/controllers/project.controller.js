@@ -237,3 +237,7 @@ export const updateProject = catchAsync(async (req, res, next) => {
         data: updatedProject
     });
 });
+
+export const suggestionsProjects = catchAsync(async (req, res, next) => {
+
+}); 

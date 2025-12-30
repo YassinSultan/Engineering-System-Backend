@@ -21,6 +21,7 @@ import ownerEntityRouter from "./src/modules/ownerEntity/routes/ownerEntity.rout
 import protocolRouter from "./src/modules/protocol/routes/protocol.route.js";
 import planningBudgetRouter from "./src/modules/planningBudget/routes/planningBudget.route.js";
 import cashFlowRouter from "./src/modules/cashFlow/routes/cashFlow.route.js";
+import suggestionRouter from "./src/modules/suggestions/routes.js";
 import logger from "./src/utils/logger.js";
 import { protect } from "./src/middleware/auth.middleware.js";
 import { seedSuperAdmin } from "./src/config/seed.js";
@@ -66,6 +67,7 @@ app.use("/api/owner-entity", protect, ownerEntityRouter);
 app.use("/api/protocols", protect, protocolRouter);
 app.use("/api/planning-budget", protect, planningBudgetRouter);
 app.use("/api/cash-flow", protect, cashFlowRouter);
+app.use('/api/suggestions', protect, suggestionRouter);
 app.use("*", (req, res) => {
     res.status(404).json({ success: false, message: "Route not found" });
 });
