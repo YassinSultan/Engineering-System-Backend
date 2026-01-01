@@ -165,6 +165,7 @@ projectSchema.plugin(mongoosePaginate);
 /* =======================
    Indexes
 ======================= */
+projectSchema.index({ name: "text", code: "text", location: "text" });
 projectSchema.index({ contractingParty: 1 });
 projectSchema.index({ isDeleted: 1 });
 projectSchema.index({ contractingParty: 1, isDeleted: 1 });

@@ -5,6 +5,8 @@ import ProjectModel from "../models/Project.model.js";
 import CashFlowModel from "../../cashFlow/models/cashFlow.model.js";
 import ProtocolModel from "../../protocol/models/Protocol.model.js";
 import PlanningBudgetModel from "../../planningBudget/models/planningBudget.model.js";
+import { SUGGESTION_REGISTRY } from '../../suggestions/registry.js';
+import { buildFilters } from "../../../utils/buildFilters.js";
 
 // create project
 export const createProject = catchAsync(async (req, res, next) => {
@@ -76,29 +78,28 @@ export const getAllProjects = catchAsync(async (req, res, next) => {
     }
 
     const query = { isDeleted: false };
+    const config = SUGGESTION_REGISTRY["projects"];
 
-    if (search) {
-        query.$text = { $search: search };
+    // 🔹 regex search على globalFields
+    if (search && config.globalFields?.length > 0) {
+        const regex = new RegExp(search, "i");
+        query.$or = config.globalFields.map((field) => ({
+            [field]: regex
+        }));
     }
 
-    Object.keys(filters).forEach((field) => {
-        if (filters[field]) {
-            query[field] = { $regex: new RegExp(filters[field], "i") };
-        }
-    });
+    Object.assign(query, buildFilters(filters, config));
 
     const options = {
         page,
         limit,
-        sort: search
-            ? { score: { $meta: "textScore" } }
-            : { [sortBy]: sortOrder === "desc" ? -1 : 1 },
+        sort: { [sortBy]: sortOrder === "desc" ? -1 : 1 },
         lean: true,
     };
 
     const projects = await ProjectModel.paginate(query, options);
 
-    // 🔥 populate virtuals manually
+    // 🔹 populate virtuals manually
     await ProjectModel.populate(projects.docs, {
         path: "protocols",
         populate: [
