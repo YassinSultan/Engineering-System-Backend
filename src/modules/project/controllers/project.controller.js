@@ -97,7 +97,8 @@ export const getAllProjects = catchAsync(async (req, res, next) => {
         lean: true,
     };
 
-    const projects = await ProjectModel.paginate(query, options);
+
+    const projects = await ProjectModel.paginate({ ...query, isDeleted: false }, options);
 
     // 🔹 populate virtuals manually
     await ProjectModel.populate(projects.docs, {
@@ -121,13 +122,30 @@ export const getAllProjects = catchAsync(async (req, res, next) => {
 export const getSpecificProject = catchAsync(async (req, res, next) => {
     try {
         const project = await ProjectModel.findById(req.params.id)
-            .populate("organizationalUnit")
-            .populate("ownerEntity")
+            .populate({
+                path: "organizationalUnit",
+                match: { isDeleted: false },
+            })
+            .populate({
+                path: "ownerEntity",
+                match: { isDeleted: false },
+            })
             .populate({
                 path: "protocols",
+                match: { isDeleted: false },
                 populate: [
-                    { path: "planningBudget" },
-                    { path: "cashFlows" },
+                    {
+                        path: "planningBudget",
+                        match: { isDeleted: false },
+                    },
+                    {
+                        path: "cashFlows",
+                        match: { isDeleted: false },
+                    },
+                    {
+                        path: "paymentOrders",
+                        match: { isDeleted: false },
+                    },
                 ],
             });
 

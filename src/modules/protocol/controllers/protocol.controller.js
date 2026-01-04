@@ -33,14 +33,16 @@ export const createProtocol = catchAsync(async (req, res, next) => {
 export const getProtocols = catchAsync(async (req, res, next) => {
     const protocols = await ProtocolModel.find()
         .populate("planningBudget")
-        .populate("cashFlows");
+        .populate("cashFlows")
+        .populate("paymentOrders");
     res.json({ success: true, data: protocols });
 });
 
 export const getSpecificProtocol = catchAsync(async (req, res, next) => {
     const protocol = await ProtocolModel.findById(req.params.id)
         .populate("planningBudget")
-        .populate("cashFlows");
+        .populate("cashFlows")
+        .populate("paymentOrders");
     res.json({ success: true, data: protocol });
 });
 

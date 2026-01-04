@@ -22,6 +22,7 @@ import protocolRouter from "./src/modules/protocol/routes/protocol.route.js";
 import planningBudgetRouter from "./src/modules/planningBudget/routes/planningBudget.route.js";
 import cashFlowRouter from "./src/modules/cashFlow/routes/cashFlow.route.js";
 import suggestionRouter from "./src/modules/suggestions/routes.js";
+import paymentOrderRouter from "./src/modules/paymentOrder/routes/paymentOrder.route.js";
 import logger from "./src/utils/logger.js";
 import { protect } from "./src/middleware/auth.middleware.js";
 import { seedSuperAdmin } from "./src/config/seed.js";
@@ -68,6 +69,7 @@ app.use("/api/protocols", protect, protocolRouter);
 app.use("/api/planning-budget", protect, planningBudgetRouter);
 app.use("/api/cash-flow", protect, cashFlowRouter);
 app.use('/api/suggestions', protect, suggestionRouter);
+app.use('/api/payment-order', protect, paymentOrderRouter);
 app.use("*", (req, res) => {
     res.status(404).json({ success: false, message: "Route not found" });
 });

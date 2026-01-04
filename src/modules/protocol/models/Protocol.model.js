@@ -78,6 +78,11 @@ protocolSchema.virtual("cashFlows", {
     localField: "_id",
     foreignField: "protocol",
 });
+protocolSchema.virtual("paymentOrders", {
+    ref: "PaymentOrder",
+    localField: "_id",
+    foreignField: "protocol",
+});
 
 protocolSchema.pre("save", async function (next) {
     const Project = mongoose.model("Project");
