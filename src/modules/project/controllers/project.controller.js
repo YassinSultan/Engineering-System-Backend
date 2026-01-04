@@ -27,11 +27,11 @@ export const createProject = catchAsync(async (req, res, next) => {
     };
 
     // coordinates
-    if (body.coordinates?.lat && body.coordinates?.lng) {
-        projectData.coordinates = {
-            lat: Number(body.coordinates.lat),
-            lng: Number(body.coordinates.lng)
-        };
+    if (Array.isArray(body.coordinates) && body.coordinates.length > 0) {
+        projectData.coordinates = body.coordinates.map(coord => ({
+            e: Number(coord.e),
+            n: Number(coord.n)
+        }));
     }
 
     // ملفات عادية
@@ -204,11 +204,12 @@ export const updateProject = catchAsync(async (req, res, next) => {
         }
     });
 
-    if (body.coordinates?.lat !== undefined && body.coordinates?.lng !== undefined) {
-        project.coordinates = {
-            lat: Number(body.coordinates.lat),
-            lng: Number(body.coordinates.lng)
-        };
+    // coordinates
+    if (Array.isArray(body.coordinates) && body.coordinates.length > 0) {
+        project.coordinates = body.coordinates.map(coord => ({
+            e: Number(coord.e),
+            n: Number(coord.n)
+        }));
     }
 
     project.estimatedCost = project.estimatedCost || {};

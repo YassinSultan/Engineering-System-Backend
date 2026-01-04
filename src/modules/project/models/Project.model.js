@@ -1,6 +1,11 @@
 import mongoose from "mongoose";
 import mongoosePaginate from "mongoose-paginate-v2";
 
+const coordinateSchema = new mongoose.Schema({
+    e: { type: Number, required: true },
+    n: { type: Number, required: true },
+}, { _id: false });
+
 const projectSchema = new mongoose.Schema(
     {
         /* =======================
@@ -71,8 +76,9 @@ const projectSchema = new mongoose.Schema(
         },
         // خط العرض / خط الطول   (احداثي الارض)
         coordinates: {
-            lat: Number,
-            lng: Number,
+            type: [coordinateSchema],
+            required: true,
+            validate: [arr => arr.length >= 3, 'Polygon يجب أن يحتوي على 3 نقاط على الأقل']
         },
         // مساحة الارض
         landArea: {
