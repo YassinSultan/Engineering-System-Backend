@@ -75,3 +75,59 @@ export const updateProtocol = catchAsync(async (req, res, next) => {
     logger.info(`Protocol partially updated: ${id}`);
     res.json({ success: true, data: updated });
 });
+
+export const updateImplementationRate = catchAsync(async (req, res, next) => {
+    const currentUser = req.user;
+    const { id } = req.params;
+    const { currentPercentage, currentDate } = req.body;
+
+    // 1️⃣ Validation
+    if (
+        currentPercentage === undefined ||
+        typeof currentPercentage !== "number" ||
+        currentPercentage < 0 ||
+        currentPercentage > 100
+    ) {
+        return next(new AppError("نسبة التنفيذ غير صالحة", 400));
+    }
+
+    if (!currentDate || isNaN(new Date(currentDate))) {
+        return next(new AppError("تاريخ التنفيذ غير صالح", 400));
+    }
+
+    const protocol = await ProtocolModel.findById(id);
+    if (!protocol || protocol.isDeleted) {
+        return next(new AppError("لا يوجد بروتوكول أو البروتوكول محذوف", 404));
+    }
+
+    // 2️⃣ منع التكرار
+    if (
+        protocol.currentPercentage === currentPercentage &&
+        protocol.currentDate?.toISOString() === new Date(currentDate).toISOString()
+    ) {
+        return next(new AppError("لا يوجد تغيير في نسبة التنفيذ", 400));
+    }
+
+    // 3️⃣ إضافة سجل تاريخي
+    protocol.executionHistory.push({
+        percentage: currentPercentage,
+        date: currentDate,
+        updatedBy: currentUser._id,
+    });
+
+    // 4️⃣ تحديث القيم الحالية
+    protocol.currentPercentage = currentPercentage;
+    protocol.currentDate = currentDate;
+
+    await protocol.save();
+
+    res.status(200).json({
+        success: true,
+        data: {
+            _id: protocol._id,
+            currentPercentage: protocol.currentPercentage,
+            currentDate: protocol.currentDate,
+            executionHistoryCount: protocol.executionHistory.length,
+        },
+    });
+});

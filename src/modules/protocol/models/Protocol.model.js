@@ -31,25 +31,31 @@ const protocolSchema = new mongoose.Schema(
             type: String,
             required: true
         },
-        /* =======================
-            الموازنة التخطيطية & التدفقات المالية
-         ======================= */
-        //  الموازنة التخطيطية
-        // planningBudget: {
-        //     type: mongoose.Schema.Types.ObjectId,
-        //     ref: "PlanningBudget",
-        // },
-        // // التدفقات المالية
-        // cashFlows: [
-        //     {
-        //         type: mongoose.Schema.Types.ObjectId,
-        //         ref: "CashFlow",
-        //     },
-        // ],
-
+        currentPercentage: Number,
+        currentDate: Date,
         /* =======================
             System
     ======================= */
+        executionHistory: [
+            {
+                percentage: {
+                    type: Number,
+                    required: true,
+                },
+                date: {
+                    type: Date,
+                    required: true,
+                },
+                updatedAt: {
+                    type: Date,
+                    default: Date.now,
+                },
+                updatedBy: {
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: "User",
+                }
+            }
+        ],
         createdBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
