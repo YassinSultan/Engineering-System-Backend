@@ -6,6 +6,52 @@ const coordinateSchema = new mongoose.Schema({
     n: { type: Number, required: true },
 }, { _id: false });
 
+const contractPermissionSchema = new mongoose.Schema({
+    value: {
+        type: Number,
+        required: true,
+        min: 0
+    },
+    date: {
+        type: Date,
+        default: Date.now
+    },
+    file: {
+        type: String
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
+    }
+});
+
+const withdrawalPermissionSchema = new mongoose.Schema({
+    value: {
+        type: Number,
+        required: true,
+        min: 0
+    },
+    date: {
+        type: Date,
+        default: Date.now
+    },
+    file: {
+        type: String
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
+    }
+});
+
 const projectSchema = new mongoose.Schema(
     {
         /* =======================
@@ -85,6 +131,10 @@ const projectSchema = new mongoose.Schema(
             type: Number,
             required: true
         },
+        // سماحات التعاقد
+        contractPermissions: [contractPermissionSchema],
+        // سماحات الصرف
+        withdrawalPermissions: [withdrawalPermissionSchema],
         /* 
             ----------------------
             خاص بجهة الموازنة

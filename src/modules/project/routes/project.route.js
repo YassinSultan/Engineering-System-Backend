@@ -1,5 +1,5 @@
 import express from "express";
-import { createProject, getAllProjects, getSpecificProject, updateProject } from "../controllers/project.controller.js";
+import { createContractPermission, createProject, createWithdrawalPermission, getAllProjects, getSpecificProject, updateContractPermission, updateProject, updateWithdrawalPermission } from "../controllers/project.controller.js";
 import { restrictTo } from "../../../middleware/auth.middleware.js";
 import { upload } from "../../../middleware/upload.js";
 
@@ -9,6 +9,12 @@ const cpUpload = upload.fields([
     { name: "estimatedCost.file", maxCount: 1 },
     { name: "securityApprovalFile", maxCount: 1 },
 ]);
+const contractPermissionUpload = upload.fields([
+    { name: "file", maxCount: 1 },
+]);
+const withdrawalPermissionUpload = upload.fields([
+    { name: "file", maxCount: 1 },
+]);
 
 const router = express.Router();
 
@@ -16,6 +22,20 @@ router.post("/", cpUpload, restrictTo("projects:create"), createProject);
 router.get("/", restrictTo("projects:read"), getAllProjects);
 router.get("/:id", restrictTo("projects:read"), getSpecificProject);
 router.patch("/:id", cpUpload, restrictTo("projects:update"), updateProject);
+router.post("/:id/contract-permissions", contractPermissionUpload, restrictTo("projects:update"), createContractPermission);
+router.patch(
+    "/:projectId/contract-permissions/:permissionId",
+    contractPermissionUpload,
+    restrictTo("projects:update"),
+    updateContractPermission
+);
+router.post("/:id/withdrawal-permissions", withdrawalPermissionUpload, restrictTo("projects:update"), createWithdrawalPermission);
+router.patch(
+    "/:projectId/withdrawal-permissions/:withdrawalId",
+    withdrawalPermissionUpload,
+    restrictTo("projects:update"),
+    updateWithdrawalPermission
+);
 
 
 export default router;

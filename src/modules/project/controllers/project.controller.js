@@ -7,6 +7,7 @@ import ProtocolModel from "../../protocol/models/Protocol.model.js";
 import PlanningBudgetModel from "../../planningBudget/models/planningBudget.model.js";
 import { SUGGESTION_REGISTRY } from '../../suggestions/registry.js';
 import { buildFilters } from "../../../utils/buildFilters.js";
+import { create } from "domain";
 
 // create project
 export const createProject = catchAsync(async (req, res, next) => {
@@ -258,6 +259,166 @@ export const updateProject = catchAsync(async (req, res, next) => {
     });
 });
 
-export const suggestionsProjects = catchAsync(async (req, res, next) => {
+export const createContractPermission = catchAsync(async (req, res, next) => {
+    const value = Number(req.body.value);
+    if (isNaN(value) || value < 0) {
+        return next(new AppError("قيمة غير صالحة", 400));
+    }
+    const updatedProject = await ProjectModel.findOneAndUpdate(
+        { _id: req.params.id, isDeleted: false },
+        {
+            $push: {
+                contractPermissions: {
+                    value: Number(req.body.value),
+                    date: req.body.date ? new Date(req.body.date) : Date.now(),
+                    file: req.files?.file?.[0]?.relativePath,
+                    createdBy: req.user._id
+                }
+            }
+        },
+        { new: true }
+    );
 
-}); 
+    if (!updatedProject) {
+        return next(new AppError("المشروع غير موجود", 404));
+    }
+
+    res.status(201).json({
+        success: true,
+        data: updatedProject
+    });
+});
+
+export const updateContractPermission = catchAsync(async (req, res, next) => {
+    const { projectId, permissionId } = req.params;
+
+    const updateFields = {};
+
+    // تحديث القيمة
+    if (req.body.value !== undefined) {
+        const value = Number(req.body.value);
+        if (isNaN(value) || value < 0) {
+            return next(new AppError("قيمة السماح غير صالحة", 400));
+        }
+        updateFields["contractPermissions.$.value"] = value;
+    }
+
+    // تحديث التاريخ
+    if (req.body.date) {
+        updateFields["contractPermissions.$.date"] = new Date(req.body.date);
+    }
+
+    // تحديث الملف
+    if (req.files?.file?.[0]) {
+        updateFields["contractPermissions.$.file"] =
+            req.files.file[0].relativePath;
+    }
+
+    // لا يوجد أي بيانات للتحديث
+    if (Object.keys(updateFields).length === 0) {
+        return next(new AppError("لا توجد بيانات للتحديث", 400));
+    }
+
+    const updatedProject = await ProjectModel.findOneAndUpdate(
+        {
+            _id: projectId,
+            isDeleted: false,
+            "contractPermissions._id": permissionId
+        },
+        {
+            $set: updateFields
+        },
+        { new: true }
+    );
+
+    if (!updatedProject) {
+        return next(new AppError("المشروع أو السماح غير موجود", 404));
+    }
+
+    res.status(200).json({
+        success: true,
+        data: updatedProject
+    });
+});
+
+export const createWithdrawalPermission = catchAsync(async (req, res, next) => {
+    const value = Number(req.body.value);
+    if (isNaN(value) || value < 0) {
+        return next(new AppError("قيمة غير صالحة", 400));
+    }
+    const updatedProject = await ProjectModel.findOneAndUpdate(
+        { _id: req.params.id, isDeleted: false },
+        {
+            $push: {
+                withdrawalPermissions: {
+                    value: Number(req.body.value),
+                    date: req.body.date ? new Date(req.body.date) : Date.now(),
+                    file: req.files?.file?.[0]?.relativePath,
+                    createdBy: req.user._id
+                }
+            }
+        },
+        { new: true }
+    );
+
+    if (!updatedProject) {
+        return next(new AppError("المشروع غير موجود", 404));
+    }
+
+    res.status(201).json({
+        success: true,
+        data: updatedProject
+    });
+});
+
+export const updateWithdrawalPermission = catchAsync(async (req, res, next) => {
+    const { projectId, withdrawalId } = req.params;
+
+    const updateFields = {};
+
+    // تحديث القيمة
+    if (req.body.value !== undefined) {
+        const value = Number(req.body.value);
+        if (isNaN(value) || value < 0) {
+            return next(new AppError("قيمة الصرف غير صالحة", 400));
+        }
+        updateFields["withdrawalPermissions.$.value"] = value;
+    }
+
+    // تحديث التاريخ
+    if (req.body.date) {
+        updateFields["withdrawalPermissions.$.date"] = new Date(req.body.date);
+    }
+
+    // تحديث الملف
+    if (req.files?.file?.[0]) {
+        updateFields["withdrawalPermissions.$.file"] =
+            req.files.file[0].relativePath;
+    }
+
+    // لا يوجد أي بيانات للتحديث
+    if (Object.keys(updateFields).length === 0) {
+        return next(new AppError("لا توجد بيانات للتحديث", 400));
+    }
+
+    const updatedProject = await ProjectModel.findOneAndUpdate(
+        {
+            _id: projectId,
+            isDeleted: false,
+            "withdrawalPermissions._id": withdrawalId
+        },
+        {
+            $set: updateFields
+        },
+        { new: true }
+    );
+
+    if (!updatedProject) {
+        return next(new AppError("المشروع أو السماح غير موجود", 404));
+    }
+
+    res.status(200).json({
+        success: true,
+        data: updatedProject
+    });
+});
