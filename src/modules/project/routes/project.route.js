@@ -1,5 +1,5 @@
 import express from "express";
-import { createContractPermission, createProject, createWithdrawalPermission, getAllProjects, getSpecificProject, updateContractPermission, updateProject, updateWithdrawalPermission } from "../controllers/project.controller.js";
+import { createContractPermission, createEstimatedCost, createFinancialAllocation, createProject, createWithdrawalPermission, getAllProjects, getSpecificProject, updateContractPermission, updateEstimatedCost, updateFinancialAllocation, updateProject, updateWithdrawalPermission } from "../controllers/project.controller.js";
 import { restrictTo } from "../../../middleware/auth.middleware.js";
 import { upload } from "../../../middleware/upload.js";
 
@@ -13,6 +13,12 @@ const contractPermissionUpload = upload.fields([
     { name: "file", maxCount: 1 },
 ]);
 const withdrawalPermissionUpload = upload.fields([
+    { name: "file", maxCount: 1 },
+]);
+const financialAllocationUpload = upload.fields([
+    { name: "file", maxCount: 1 },
+]);
+const estimatedCostUpload = upload.fields([
     { name: "file", maxCount: 1 },
 ]);
 
@@ -35,6 +41,20 @@ router.patch(
     withdrawalPermissionUpload,
     restrictTo("projects:update"),
     updateWithdrawalPermission
+);
+router.post("/:id/financial-allocations", financialAllocationUpload, restrictTo("projects:update"), createFinancialAllocation);
+router.patch(
+    "/:projectId/financial-allocations/:financialAllocationId",
+    financialAllocationUpload,
+    restrictTo("projects:update"),
+    updateFinancialAllocation
+);
+router.post("/:id/estimated-costs", estimatedCostUpload, restrictTo("projects:update"), createEstimatedCost);
+router.patch(
+    "/:projectId/estimated-costs/:estimatedCostId",
+    estimatedCostUpload,
+    restrictTo("projects:update"),
+    updateEstimatedCost
 );
 
 

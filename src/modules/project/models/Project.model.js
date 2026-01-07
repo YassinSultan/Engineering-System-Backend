@@ -28,6 +28,50 @@ const contractPermissionSchema = new mongoose.Schema({
         ref: "User"
     }
 });
+const financialAllocationSchema = new mongoose.Schema({
+    value: {
+        type: Number,
+        required: true,
+        min: 0
+    },
+    date: {
+        type: Date,
+        default: Date.now
+    },
+    file: {
+        type: String
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
+    }
+});
+const estimatedCostSchema = new mongoose.Schema({
+    value: {
+        type: Number,
+        required: true,
+        min: 0
+    },
+    date: {
+        type: Date,
+        default: Date.now
+    },
+    file: {
+        type: String
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
+    }
+});
 
 const withdrawalPermissionSchema = new mongoose.Schema({
     value: {
@@ -135,6 +179,8 @@ const projectSchema = new mongoose.Schema(
         contractPermissions: [contractPermissionSchema],
         // سماحات الصرف
         withdrawalPermissions: [withdrawalPermissionSchema],
+        financialAllocations: [financialAllocationSchema],
+        estimatedCosts: [estimatedCostSchema],
         /* 
             ----------------------
             خاص بجهة الموازنة

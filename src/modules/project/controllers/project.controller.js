@@ -258,7 +258,7 @@ export const updateProject = catchAsync(async (req, res, next) => {
         data: updatedProject
     });
 });
-
+// صلاحيات التعاقد
 export const createContractPermission = catchAsync(async (req, res, next) => {
     const value = Number(req.body.value);
     if (isNaN(value) || value < 0) {
@@ -340,7 +340,7 @@ export const updateContractPermission = catchAsync(async (req, res, next) => {
         data: updatedProject
     });
 });
-
+// صلاحيات الصرف
 export const createWithdrawalPermission = catchAsync(async (req, res, next) => {
     const value = Number(req.body.value);
     if (isNaN(value) || value < 0) {
@@ -415,6 +415,171 @@ export const updateWithdrawalPermission = catchAsync(async (req, res, next) => {
 
     if (!updatedProject) {
         return next(new AppError("المشروع أو السماح غير موجود", 404));
+    }
+
+    res.status(200).json({
+        success: true,
+        data: updatedProject
+    });
+});
+// التخصص المالي
+export const createFinancialAllocation = catchAsync(async (req, res, next) => {
+    const value = Number(req.body.value);
+    if (isNaN(value) || value < 0) {
+        return next(new AppError("قيمة غير صالحة", 400));
+    }
+    const updatedProject = await ProjectModel.findOneAndUpdate(
+        { _id: req.params.id, isDeleted: false },
+        {
+            $push: {
+                financialAllocations: {
+                    value: Number(req.body.value),
+                    date: req.body.date ? new Date(req.body.date) : Date.now(),
+                    file: req.files?.file?.[0]?.relativePath,
+                    createdBy: req.user._id
+                }
+            }
+        },
+        { new: true }
+    );
+
+    if (!updatedProject) {
+        return next(new AppError("المشروع غير موجود", 404));
+    }
+
+    res.status(201).json({
+        success: true,
+        data: updatedProject
+    });
+});
+
+export const updateFinancialAllocation = catchAsync(async (req, res, next) => {
+    const { projectId, financialAllocationId } = req.params;
+
+    const updateFields = {};
+
+    // تحديث القيمة
+    if (req.body.value !== undefined) {
+        const value = Number(req.body.value);
+        if (isNaN(value) || value < 0) {
+            return next(new AppError("قيمة الصرف غير صالحة", 400));
+        }
+        updateFields["financialAllocations.$.value"] = value;
+    }
+
+    // تحديث التاريخ
+    if (req.body.date) {
+        updateFields["financialAllocations.$.date"] = new Date(req.body.date);
+    }
+
+    // تحديث الملف
+    if (req.files?.file?.[0]) {
+        updateFields["financialAllocations.$.file"] =
+            req.files.file[0].relativePath;
+    }
+
+    // لا يوجد أي بيانات للتحديث
+    if (Object.keys(updateFields).length === 0) {
+        return next(new AppError("لا توجد بيانات للتحديث", 400));
+    }
+
+    const updatedProject = await ProjectModel.findOneAndUpdate(
+        {
+            _id: projectId,
+            isDeleted: false,
+            "financialAllocations._id": financialAllocationId
+        },
+        {
+            $set: updateFields
+        },
+        { new: true }
+    );
+
+    if (!updatedProject) {
+        return next(new AppError("المشروع أو التخصص المالي غير موجود", 404));
+    }
+
+    res.status(200).json({
+        success: true,
+        data: updatedProject
+    });
+});
+
+// التكلفة التقديرية
+export const createEstimatedCost = catchAsync(async (req, res, next) => {
+    const value = Number(req.body.value);
+    if (isNaN(value) || value < 0) {
+        return next(new AppError("قيمة غير صالحة", 400));
+    }
+    const updatedProject = await ProjectModel.findOneAndUpdate(
+        { _id: req.params.id, isDeleted: false },
+        {
+            $push: {
+                estimatedCosts: {
+                    value: Number(req.body.value),
+                    date: req.body.date ? new Date(req.body.date) : Date.now(),
+                    file: req.files?.file?.[0]?.relativePath,
+                    createdBy: req.user._id
+                }
+            }
+        },
+        { new: true }
+    );
+
+    if (!updatedProject) {
+        return next(new AppError("المشروع غير موجود", 404));
+    }
+
+    res.status(201).json({
+        success: true,
+        data: updatedProject
+    });
+});
+
+export const updateEstimatedCost = catchAsync(async (req, res, next) => {
+    const { projectId, estimatedCostId } = req.params;
+
+    const updateFields = {};
+
+    // تحديث القيمة
+    if (req.body.value !== undefined) {
+        const value = Number(req.body.value);
+        if (isNaN(value) || value < 0) {
+            return next(new AppError("قيمة الصرف غير صالحة", 400));
+        }
+        updateFields["estimatedCosts.$.value"] = value;
+    }
+
+    // تحديث التاريخ
+    if (req.body.date) {
+        updateFields["estimatedCosts.$.date"] = new Date(req.body.date);
+    }
+
+    // تحديث الملف
+    if (req.files?.file?.[0]) {
+        updateFields["estimatedCosts.$.file"] =
+            req.files.file[0].relativePath;
+    }
+
+    // لا يوجد أي بيانات للتحديث
+    if (Object.keys(updateFields).length === 0) {
+        return next(new AppError("لا توجد بيانات للتحديث", 400));
+    }
+
+    const updatedProject = await ProjectModel.findOneAndUpdate(
+        {
+            _id: projectId,
+            isDeleted: false,
+            "estimatedCosts._id": estimatedCostId
+        },
+        {
+            $set: updateFields
+        },
+        { new: true }
+    );
+
+    if (!updatedProject) {
+        return next(new AppError("المشروع أو التكلفة التقديرية غير موجود", 404));
     }
 
     res.status(200).json({
