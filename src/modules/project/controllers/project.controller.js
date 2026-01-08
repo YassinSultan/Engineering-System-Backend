@@ -587,3 +587,46 @@ export const updateEstimatedCost = catchAsync(async (req, res, next) => {
         data: updatedProject
     });
 });
+
+// ملف العرض
+export const updatePresentationFile = catchAsync(async (req, res, next) => {
+    const updatedProject = await ProjectModel.findOneAndUpdate(
+        { _id: req.params.projectId, isDeleted: false },
+        {
+            $set: {
+                presentationFile: req.files?.file?.[0]?.relativePath
+            }
+        },
+        { new: true }
+    );
+
+    if (!updatedProject) {
+        return next(new AppError("المشروع غير موجود", 404));
+    }
+
+    res.status(201).json({
+        success: true,
+        data: updatedProject
+    });
+});
+// ملف التصوير الجوي
+export const updateAerialPhotographyFile = catchAsync(async (req, res, next) => {
+    const updatedProject = await ProjectModel.findOneAndUpdate(
+        { _id: req.params.projectId, isDeleted: false },
+        {
+            $set: {
+                aerialPhotographyFile: req.files?.file?.[0]?.relativePath
+            }
+        },
+        { new: true }
+    );
+
+    if (!updatedProject) {
+        return next(new AppError("المشروع غير موجود", 404));
+    }
+
+    res.status(201).json({
+        success: true,
+        data: updatedProject
+    });
+});

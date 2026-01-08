@@ -181,6 +181,14 @@ const projectSchema = new mongoose.Schema(
         withdrawalPermissions: [withdrawalPermissionSchema],
         financialAllocations: [financialAllocationSchema],
         estimatedCosts: [estimatedCostSchema],
+        // ملف العرض
+        presentationFile: {
+            type: String
+        },
+        // ملف التصوير الجوي
+        aerialPhotographyFile: {
+            type: String
+        },
         /* 
             ----------------------
             خاص بجهة الموازنة

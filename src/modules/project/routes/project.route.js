@@ -1,5 +1,5 @@
 import express from "express";
-import { createContractPermission, createEstimatedCost, createFinancialAllocation, createProject, createWithdrawalPermission, getAllProjects, getSpecificProject, updateContractPermission, updateEstimatedCost, updateFinancialAllocation, updateProject, updateWithdrawalPermission } from "../controllers/project.controller.js";
+import { createContractPermission, createEstimatedCost, createFinancialAllocation, createProject, createWithdrawalPermission, getAllProjects, getSpecificProject, updateAerialPhotographyFile, updateContractPermission, updateEstimatedCost, updateFinancialAllocation, updatePresentationFile, updateProject, updateWithdrawalPermission } from "../controllers/project.controller.js";
 import { restrictTo } from "../../../middleware/auth.middleware.js";
 import { upload } from "../../../middleware/upload.js";
 
@@ -19,6 +19,12 @@ const financialAllocationUpload = upload.fields([
     { name: "file", maxCount: 1 },
 ]);
 const estimatedCostUpload = upload.fields([
+    { name: "file", maxCount: 1 },
+]);
+const presentationFileUpload = upload.fields([
+    { name: "file", maxCount: 1 },
+]);
+const aerialPhotographyFileUpload = upload.fields([
     { name: "file", maxCount: 1 },
 ]);
 
@@ -55,6 +61,18 @@ router.patch(
     estimatedCostUpload,
     restrictTo("projects:update"),
     updateEstimatedCost
+);
+router.patch(
+    "/:projectId/presentation-file",
+    presentationFileUpload,
+    restrictTo("projects:update"),
+    updatePresentationFile
+);
+router.patch(
+    "/:projectId/aerial-photography-file",
+    aerialPhotographyFileUpload,
+    restrictTo("projects:update"),
+    updateAerialPhotographyFile
 );
 
 
