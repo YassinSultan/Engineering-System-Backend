@@ -8,7 +8,7 @@ import { hasAnyPermission } from "../utils/permission.utils.js";
 import organizationalUnitModel from "../modules/organizationalUnit/models/organizationalUnit.model.js";
 import mongoose from "mongoose";
 
-// chick if user is logged in
+
 export const protect = catchAsync(async (req, res, next) => {
     let token;
     if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
@@ -30,41 +30,91 @@ export const protect = catchAsync(async (req, res, next) => {
     next();
 });
 
-/**
- * Middleware للتحقق من الصلاحيات مع مراعاة الـ scope والـ units
- * 
- * استخدام:
- * restrictTo("companies:read")          → للعمليات التي لا تحتاج resource معين (مثل list عام أو create)
- * restrictTo("companies:read", true)    → يتطلب استخراج unitId من params/body/query
- * 
- * @param {string|string[]} requiredActions
- * @param {boolean} [requireResourceUnit=false] - هل نحتاج إلى unitId للـ resource؟
- */
-export const restrictTo = (requiredActions, requireResourceUnit = false) => {
-    const actions = Array.isArray(requiredActions) ? requiredActions : [requiredActions];
-
+export const resolveUnit = ({ from, chain }) => {
     return catchAsync(async (req, res, next) => {
-        const user = req.user;
+        const startId = req[from.location]?.[from.field];
 
-        let resourceUnitId = null;
+        if (!startId) {
+            return next(new AppError(`${from.field} مطلوب`, 400));
+        }
 
-        if (requireResourceUnit) {
-            // البحث عن unitId في الأماكن الشائعة
-            resourceUnitId = req.params.id || req.params.unitId || req.body.organizationalUnit || req.query.organizationalUnit;
+        // 🔹 حالة مباشرة: الـ ID نفسه Unit
+        if (chain[0].isUnit && !chain[0].model) {
+            req.resourceUnitId = Array.isArray(startId) ? startId : [startId];
+            return next();
+        }
 
-            if (!resourceUnitId) {
-                return next(new AppError("لا يمكن تحديد الوحدة التنظيمية للعملية", 400));
+        // 🔹 البداية
+        if (!chain[0]?.model) {
+            return next(new AppError("resolveUnit: start model is missing", 500));
+        }
+
+        let currentDoc = await chain[0].model.findById(startId);
+
+        if (!currentDoc) {
+            return next(new AppError("المورد غير موجود", 404));
+        }
+
+        // 🔹 traversal
+        for (let i = 1; i < chain.length; i++) {
+            const step = chain[i];
+
+            const refId = currentDoc[step.ref];
+
+            if (!refId) {
+                return next(new AppError("سلسلة الربط غير مكتملة", 500));
+            }
+
+            // ✅ وصلنا للوحدة
+            if (step.isUnit) {
+                req.resourceUnitId = Array.isArray(refId) ? refId : [refId];
+                return next();
+            }
+
+            if (!step.model) {
+                return next(
+                    new AppError(`resolveUnit: model missing at step ${i}`, 500)
+                );
+            }
+
+            currentDoc = await step.model.findById(refId);
+
+            if (!currentDoc) {
+                return next(new AppError("المورد المرتبط غير موجود", 404));
             }
         }
 
-        const allowed = hasAnyPermission(user, actions, resourceUnitId);
-
-        if (!allowed) {
-            return next(new AppError("ليس لديك صلاحية لتنفيذ هذا الإجراء", 403));
-        }
-
-        next();
+        return next(new AppError("لم يتم الوصول إلى الوحدة التنظيمية", 500));
     });
+};
+
+
+export const restrictTo = (requiredActions) => {
+    const actions = Array.isArray(requiredActions)
+        ? requiredActions
+        : [requiredActions];
+
+    return async (req, res, next) => {
+        try {
+            if (req.user.role === "SUPER_ADMIN") return next();
+
+            const allowed = await hasAnyPermission(
+                req.user,
+                actions,
+                req.resourceUnitId ?? null
+            );
+
+            if (!allowed) {
+                return next(
+                    new AppError("ليس لديك صلاحية لتنفيذ هذا الإجراء", 403)
+                );
+            }
+
+            next();
+        } catch (err) {
+            next(err);
+        }
+    };
 };
 
 /**

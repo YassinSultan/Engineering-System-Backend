@@ -53,34 +53,62 @@ export const normalizePermissions = (permissions = []) => {
  * - لو resourceUnitId === null (عمليات عامة: list, create, menu...) → مسموح بأي scope
  * - لو resourceUnitId موجود → يتم التحقق بدقة حسب ALL / OWN_UNIT / CUSTOM_UNITS
  */
-export const hasPermission = async (user, requiredAction, resourceUnitId = null) => {
+export const hasPermission = async (
+    user,
+    requiredAction,
+    resourceUnitId = null
+) => {
     if (!user) return false;
-    if (user.role === "SUPER_ADMIN") return true;
 
-    const matchingPerm = user.permissions.find(perm => perm.action === requiredAction);
+    const matchingPerm = user.permissions.find(
+        perm => perm.action === requiredAction
+    );
+
     if (!matchingPerm) return false;
 
+    // عمليات عامة
     if (resourceUnitId === null) {
-        return true; // عمليات عامة
+        // return matchingPerm.scope === "ALL";
+        return true;
     }
+
+    // توحيد الشكل
+    const resourceUnits = Array.isArray(resourceUnitId)
+        ? resourceUnitId
+        : [resourceUnitId];
 
     if (matchingPerm.scope === "ALL") return true;
 
-    const userUnitId = user.organizationalUnit?._id || user.organizationalUnit;
+    const userUnitId =
+        user.organizationalUnit?._id || user.organizationalUnit;
 
+    // OWN_UNIT
     if (matchingPerm.scope === "OWN_UNIT") {
-        return userUnitId.toString() === resourceUnitId.toString();
+        return resourceUnits.some(
+            unitId => unitId.toString() === userUnitId.toString()
+        );
     }
 
+    // CUSTOM_UNITS
     if (matchingPerm.scope === "CUSTOM_UNITS") {
-        return matchingPerm.units.some(unit => unit.toString() === resourceUnitId.toString());
+        return resourceUnits.some(unitId =>
+            matchingPerm.units.some(
+                u => u.toString() === unitId.toString()
+            )
+        );
     }
 
+    // OWN_UNIT_AND_CHILDREN
     if (matchingPerm.scope === "OWN_UNIT_AND_CHILDREN") {
-        const resourceUnit = await OrganizationalUnit.findById(resourceUnitId).select('path');
-        if (!resourceUnit) return false;
+        const units = await OrganizationalUnit
+            .find({ _id: { $in: resourceUnits } })
+            .select("path");
 
-        return resourceUnit.path.some(p => p.toString() === userUnitId.toString());
+        return units.some(unit =>
+            unit.path.some(
+                p => p.toString() === userUnitId.toString()
+            )
+        );
     }
 
     return false;
@@ -89,10 +117,21 @@ export const hasPermission = async (user, requiredAction, resourceUnitId = null)
 /**
  * التحقق من عدة صلاحيات (أي واحدة تكفي)
  */
-export const hasAnyPermission = (user, permsArray, resourceUnitId = null) => {
+export const hasAnyPermission = async (
+    user,
+    permsArray,
+    resourceUnitId = null
+) => {
     if (!user) return false;
-    if (user.role === "SUPER_ADMIN") return true;
 
-    const actions = Array.isArray(permsArray) ? permsArray : [permsArray];
-    return actions.some(action => hasPermission(user, action, resourceUnitId));
+    const actions = Array.isArray(permsArray)
+        ? permsArray
+        : [permsArray];
+
+    for (const action of actions) {
+        const allowed = await hasPermission(user, action, resourceUnitId);
+        if (allowed) return true;
+    }
+
+    return false;
 };

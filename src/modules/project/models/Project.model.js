@@ -179,6 +179,7 @@ const projectSchema = new mongoose.Schema(
         contractPermissions: [contractPermissionSchema],
         // سماحات الصرف
         withdrawalPermissions: [withdrawalPermissionSchema],
+
         financialAllocations: [financialAllocationSchema],
         estimatedCosts: [estimatedCostSchema],
         // ملف العرض

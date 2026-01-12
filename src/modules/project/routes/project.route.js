@@ -1,7 +1,9 @@
 import express from "express";
 import { createContractPermission, createEstimatedCost, createFinancialAllocation, createProject, createWithdrawalPermission, getAllProjects, getSpecificProject, updateAerialPhotographyFile, updateContractPermission, updateEstimatedCost, updateFinancialAllocation, updatePresentationFile, updateProject, updateWithdrawalPermission } from "../controllers/project.controller.js";
-import { restrictTo } from "../../../middleware/auth.middleware.js";
+import { resolveUnit, restrictTo, unitFilter } from "../../../middleware/auth.middleware.js";
 import { upload } from "../../../middleware/upload.js";
+import { model } from "mongoose";
+import ProjectModel from "../models/Project.model.js";
 
 const cpUpload = upload.fields([
     { name: "networkBudgetFile", maxCount: 1 },
@@ -29,49 +31,186 @@ const aerialPhotographyFileUpload = upload.fields([
 ]);
 
 const router = express.Router();
-
-router.post("/", cpUpload, restrictTo("projects:create"), createProject);
-router.get("/", restrictTo("projects:read"), getAllProjects);
-router.get("/:id", restrictTo("projects:read"), getSpecificProject);
-router.patch("/:id", cpUpload, restrictTo("projects:update"), updateProject);
-router.post("/:id/contract-permissions", contractPermissionUpload, restrictTo("projects:update"), createContractPermission);
+// اضافة مشروع
+router.post(
+    "/",
+    cpUpload,
+    resolveUnit({
+        from: { location: "body", field: "organizationalUnit" },
+        chain: [
+            { isUnit: true } // ✅ الـ ID نفسه هو Unit
+        ]
+    }),
+    restrictTo("projects:create:project"),
+    createProject
+);
+// عرض كل المشاريع
+router.get("/", restrictTo("projects:read"), unitFilter("projects:read"), getAllProjects);
+// عرض مشروع محدد
+router.get(
+    "/:id",
+    resolveUnit({
+        from: { location: "params", field: "id" },
+        chain: [
+            { model: ProjectModel },                 // start
+            { ref: "organizationalUnit", isUnit: true }
+        ]
+    }),
+    restrictTo("projects:read"),
+    getSpecificProject
+);
+// تحديث مشروع
+router.patch(
+    "/:id",
+    cpUpload,
+    resolveUnit({
+        from: { location: "params", field: "id" },
+        chain: [
+            { model: ProjectModel },                 // start
+            { ref: "organizationalUnit", isUnit: true }
+        ]
+    }),
+    restrictTo("projects:update:project"),
+    updateProject
+);
+// اضافة صلاحيات تعاقد
+router.post(
+    "/:id/contract-permissions",
+    contractPermissionUpload,
+    resolveUnit({
+        from: { location: "params", field: "id" },
+        chain: [
+            { model: ProjectModel },                 // start
+            { ref: "organizationalUnit", isUnit: true }
+        ]
+    }),
+    restrictTo("projects:create:contractPermission"),
+    createContractPermission
+);
+// تحديث صلاحيات تعاقد
 router.patch(
     "/:projectId/contract-permissions/:permissionId",
     contractPermissionUpload,
-    restrictTo("projects:update"),
+    resolveUnit({
+        from: { location: "params", field: "projectId" },
+        chain: [
+            { model: ProjectModel },                 // start
+            { ref: "organizationalUnit", isUnit: true }
+        ]
+    }),
+    restrictTo("projects:update:contractPermission"),
     updateContractPermission
 );
-router.post("/:id/withdrawal-permissions", withdrawalPermissionUpload, restrictTo("projects:update"), createWithdrawalPermission);
+// اضافة صلاحيات صرف
+router.post(
+    "/:id/withdrawal-permissions",
+    withdrawalPermissionUpload,
+    resolveUnit({
+        from: { location: "params", field: "id" },
+        chain: [
+            { model: ProjectModel },                 // start
+            { ref: "organizationalUnit", isUnit: true }
+        ]
+    }),
+    restrictTo("projects:create:withdrawalPermission"),
+    createWithdrawalPermission
+);
+// تحديث صلاحيات صرف
 router.patch(
     "/:projectId/withdrawal-permissions/:withdrawalId",
     withdrawalPermissionUpload,
-    restrictTo("projects:update"),
+    resolveUnit({
+        from: { location: "params", field: "projectId" },
+        chain: [
+            { model: ProjectModel },                 // start
+            { ref: "organizationalUnit", isUnit: true }
+        ]
+    }),
+    restrictTo("projects:update:withdrawalPermission"),
     updateWithdrawalPermission
 );
-router.post("/:id/financial-allocations", financialAllocationUpload, restrictTo("projects:update"), createFinancialAllocation);
+// اضافة تخصص مالي
+router.post(
+    "/:id/financial-allocations",
+    financialAllocationUpload,
+    resolveUnit({
+        from: { location: "params", field: "id" },
+        chain: [
+            { model: ProjectModel },                 // start
+            { ref: "organizationalUnit", isUnit: true }
+        ]
+    }),
+    restrictTo("projects:create:financialAllocation"),
+    createFinancialAllocation
+);
+// تحديث تخصص مالي
 router.patch(
     "/:projectId/financial-allocations/:financialAllocationId",
     financialAllocationUpload,
-    restrictTo("projects:update"),
+    resolveUnit({
+        from: { location: "params", field: "projectId" },
+        chain: [
+            { model: ProjectModel },                 // start
+            { ref: "organizationalUnit", isUnit: true }
+        ]
+    }),
+    restrictTo("projects:update:financialAllocation"),
     updateFinancialAllocation
 );
-router.post("/:id/estimated-costs", estimatedCostUpload, restrictTo("projects:update"), createEstimatedCost);
+// اضافة تكلفة تقديرية
+router.post(
+    "/:id/estimated-costs",
+    estimatedCostUpload,
+    resolveUnit({
+        from: { location: "params", field: "id" },
+        chain: [
+            { model: ProjectModel },                 // start
+            { ref: "organizationalUnit", isUnit: true }
+        ]
+    }),
+    restrictTo("projects:create:estimatedCost"),
+    createEstimatedCost
+);
+// تحديث تكلفة تقديرية
 router.patch(
     "/:projectId/estimated-costs/:estimatedCostId",
     estimatedCostUpload,
-    restrictTo("projects:update"),
+    resolveUnit({
+        from: { location: "params", field: "projectId" },
+        chain: [
+            { model: ProjectModel },                 // start
+            { ref: "organizationalUnit", isUnit: true }
+        ]
+    }),
+    restrictTo("projects:update:estimatedCost"),
     updateEstimatedCost
 );
+// ملف العرض
 router.patch(
     "/:projectId/presentation-file",
     presentationFileUpload,
-    restrictTo("projects:update"),
+    resolveUnit({
+        from: { location: "params", field: "projectId" },
+        chain: [
+            { model: ProjectModel },                 // start
+            { ref: "organizationalUnit", isUnit: true }
+        ]
+    }),
+    restrictTo("projects:update:presentationFile"),
     updatePresentationFile
 );
+// ملف التصوير 
 router.patch(
     "/:projectId/aerial-photography-file",
     aerialPhotographyFileUpload,
-    restrictTo("projects:update"),
+    resolveUnit({
+        from: { location: "params", field: "projectId" },
+        chain: [
+            { model: ProjectModel },                 // start
+            { ref: "organizationalUnit", isUnit: true }
+        ]
+    }),
+    restrictTo("projects:update:aerialPhotographyFile"),
     updateAerialPhotographyFile
 );
 

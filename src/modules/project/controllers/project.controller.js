@@ -79,6 +79,9 @@ export const getAllProjects = catchAsync(async (req, res, next) => {
     }
 
     const query = { isDeleted: false };
+    if (req.organizationalUnitFilter) {
+        query.organizationalUnit = req.organizationalUnitFilter;
+    }
     const config = SUGGESTION_REGISTRY["projects"];
 
     // 🔹 regex search على globalFields
@@ -125,27 +128,21 @@ export const getSpecificProject = catchAsync(async (req, res, next) => {
         const project = await ProjectModel.findById(req.params.id)
             .populate({
                 path: "organizationalUnit",
-                match: { isDeleted: false },
             })
             .populate({
                 path: "ownerEntity",
-                match: { isDeleted: false },
             })
             .populate({
                 path: "protocols",
-                match: { isDeleted: false },
                 populate: [
                     {
                         path: "planningBudget",
-                        match: { isDeleted: false },
                     },
                     {
                         path: "cashFlows",
-                        match: { isDeleted: false },
                     },
                     {
                         path: "paymentOrders",
-                        match: { isDeleted: false },
                     },
                 ],
             });
