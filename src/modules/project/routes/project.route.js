@@ -1,5 +1,5 @@
 import express from "express";
-import { createContractPermission, createEstimatedCost, createFinancialAllocation, createProject, createWithdrawalPermission, getAllProjects, getSpecificProject, updateAerialPhotographyFile, updateContractPermission, updateEstimatedCost, updateFinancialAllocation, updatePresentationFile, updateProject, updateWithdrawalPermission } from "../controllers/project.controller.js";
+import { createContractPermission, createEstimatedCost, createFinancialAllocation, createProject, createWithdrawalPermission, getAllProjects, getProjectsForSelect, getSpecificProject, updateAerialPhotographyFile, updateContractPermission, updateEstimatedCost, updateFinancialAllocation, updatePresentationFile, updateProject, updateWithdrawalPermission } from "../controllers/project.controller.js";
 import { resolveUnit, restrictTo, unitFilter } from "../../../middleware/auth.middleware.js";
 import { upload } from "../../../middleware/upload.js";
 import { model } from "mongoose";
@@ -46,6 +46,7 @@ router.post(
 );
 // عرض كل المشاريع
 router.get("/", restrictTo("projects:read"), unitFilter("projects:read"), getAllProjects);
+router.get("/options", restrictTo("projects:read"), unitFilter("projects:read"), getProjectsForSelect);
 // عرض مشروع محدد
 router.get(
     "/:id",

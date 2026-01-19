@@ -5,6 +5,7 @@ import { deleteFiles } from "../../../utils/deleteFiles.js";
 import logger from "../../../utils/logger.js";
 import ExcelJS from "exceljs";
 import { escapeRegExp } from "../../../utils/escapeRegExp.js";
+import companyModel from "../models/company.model.js";
 // create
 export const createCompany = catchAsync(async (req, res, next) => {
     const data = { ...req.body };
@@ -78,6 +79,37 @@ export const getCompanies = async (req, res) => {
         res.status(500).json({ success: false, message: "Server error" });
     }
 };
+// get projects for select (lightweight)
+export const getCompaniesOptions = catchAsync(async (req, res, next) => {
+    const { search = "", page = 1, limit = 10 } = req.query;
+
+    const query = { deleted: false };
+
+    if (search) {
+        query.companyName = { $regex: search, $options: "i" };
+    }
+
+    const options = {
+        page: Number(page),
+        limit: Number(limit),
+        sort: { createdAt: -1 },
+        select: "companyName",
+        lean: true,
+    };
+
+    const result = await companyModel.paginate(query, options);
+
+    const formattedOptions = result.docs.map(item => ({
+        value: item._id,
+        label: item.companyName,
+    }));
+
+    res.status(200).json({
+        success: true,
+        results: formattedOptions,
+        hasMore: result.hasNextPage,
+    });
+});
 
 // get one
 export const getCompany = catchAsync(async (req, res, next) => {

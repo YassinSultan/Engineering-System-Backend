@@ -7,10 +7,11 @@ import {
     deleteCompany,
     getFilterOptions,
     exportToExcel,
+    getCompaniesOptions,
 } from "../controllers/company.controller.js";
 import { upload } from "../../../middleware/upload.js";
 import { validateCompany } from "../../../middleware/validators.js";
-import { restrictTo } from "../../../middleware/auth.middleware.js";
+import { restrictTo, unitFilter } from "../../../middleware/auth.middleware.js";
 
 const router = express.Router();
 
@@ -22,6 +23,7 @@ const cpUpload = upload.fields([
 router.post("/", cpUpload, validateCompany, createCompany);
 router.post("/export", restrictTo("companies:export"), exportToExcel);
 router.get("/", getCompanies);
+router.get("/options", getCompaniesOptions);
 router.get("/:id", getCompany);
 router.patch("/:id", cpUpload, updateCompany);
 router.delete("/hard/:id", deleteCompany);

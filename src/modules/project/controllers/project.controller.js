@@ -122,7 +122,42 @@ export const getAllProjects = catchAsync(async (req, res, next) => {
         totalPages: projects.totalPages,
     });
 });
+// get projects for select (lightweight)
+export const getProjectsForSelect = catchAsync(async (req, res, next) => {
+    const { search = "", page = 1, limit = 10 } = req.query;
 
+    const query = { isDeleted: false };
+
+    // نفس منطق الـ organizational unit
+    if (req.organizationalUnitFilter) {
+        query.organizationalUnit = req.organizationalUnitFilter;
+    }
+
+    if (search) {
+        query.name = { $regex: search, $options: "i" };
+    }
+
+    const options = {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        sort: { createdAt: -1 },
+        select: "name",      // مهم جدًا
+        lean: true,
+    };
+
+    const result = await ProjectModel.paginate(query, options);
+
+    const formattedOptions = result.docs.map(p => ({
+        value: p._id,
+        label: p.name
+    }));
+
+    res.status(200).json({
+        success: true,
+        results: formattedOptions,
+        hasMore: result.hasNextPage
+    });
+});
 export const getSpecificProject = catchAsync(async (req, res, next) => {
     try {
         const project = await ProjectModel.findById(req.params.id)
