@@ -98,3 +98,24 @@ export const getAllBillOfQuantitie = catchAsync(async (req, res, next) => {
         totalPages: bills.totalPages,
     });
 });
+export const getSpecificBillOfQuantitie = catchAsync(async (req, res, next) => {
+    try {
+        const bill = await billOfQuantitieModel.findById(req.params.id)
+            .populate({
+                path: "organizationalUnit",
+            })
+            .populate({
+                path: "project",
+            })
+            .populate({
+                path: "company",
+            });
+
+        if (!bill) return next(new AppError("bill not found", 404));
+
+        res.json({ success: true, data: bill });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+});

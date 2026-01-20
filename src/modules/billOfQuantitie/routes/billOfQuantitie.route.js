@@ -1,8 +1,9 @@
 import express from "express";
 
 import { upload } from "../../../middleware/upload.js";
-import { createBillOfQuantitie, getAllBillOfQuantitie } from "../controllers/billOfQuantitie.controller.js";
+import { createBillOfQuantitie, getAllBillOfQuantitie, getSpecificBillOfQuantitie } from "../controllers/billOfQuantitie.controller.js";
 import { resolveUnit, restrictTo, unitFilter } from "../../../middleware/auth.middleware.js";
+import billOfQuantitieModel from "../models/billOfQuantitie.model.js";
 
 const router = express.Router();
 
@@ -29,4 +30,18 @@ router.post(
     createBillOfQuantitie
 );
 router.get("/", restrictTo("billOfQuantitie:read"), unitFilter("billOfQuantitie:read"), getAllBillOfQuantitie);
+
+router.get(
+    "/:id",
+    resolveUnit({
+        from: { location: "params", field: "id" },
+        chain: [
+            { model: billOfQuantitieModel },
+            { ref: "organizationalUnit", isUnit: true }
+        ]
+    }),
+    restrictTo("billOfQuantitie:read"),
+    getSpecificBillOfQuantitie
+);
+
 export default router;
