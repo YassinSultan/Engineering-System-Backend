@@ -102,19 +102,36 @@ const BillOfQuantitiesSchema = new mongoose.Schema({
     status: {
         type: String,
         enum: [
-            "DRAFT",        // لسه متسجلة
             "REVIEW",       // عند الضابط
             "TECHNICAL",    // عند القائد الفني
             "GENERAL",      // عند مكتب فني اللواء
             "SENT",         // اتبعت لإدارة الأشغال
-            "RETURNED"      // استيفاء
         ],
-        default: "DRAFT"
+        default: "REVIEW"
     },
     isDeleted: {
         type: Boolean,
         default: false
-    }
+    },
+    changeLogs: [
+        {
+            changedBy: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "User",
+                required: true
+            },
+            fromStage: String,
+            toStage: String,
+            notes: [String],
+            attachments: {
+                boqPdf: String
+            },
+            createdAt: {
+                type: Date,
+                default: Date.now
+            }
+        }
+    ],
 }, {
     timestamps: true,
 });

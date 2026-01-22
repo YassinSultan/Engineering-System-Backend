@@ -109,6 +109,9 @@ export const getSpecificBillOfQuantitie = catchAsync(async (req, res, next) => {
             })
             .populate({
                 path: "company",
+            })
+            .populate({
+                path: "changeLogs.changedBy",
             });
 
         if (!bill) return next(new AppError("bill not found", 404));
@@ -118,4 +121,60 @@ export const getSpecificBillOfQuantitie = catchAsync(async (req, res, next) => {
         console.error(err);
         res.status(500).json({ success: false, message: "Server error" });
     }
+});
+
+export const updateStepOfBillOfQuantitie = catchAsync(async (req, res, next) => {
+    /*
+     * body {
+    notes : ["comment1","comment2"]
+        } 
+     * files {
+        boqPdf : file
+        }
+    * params {
+        id : id
+        stepName : stepName //next | prev
+        }
+     */
+
+    const { id, stepName } = req.params;
+    const { notes } = req.body;
+    const boqPdf = req.files?.boqPdf?.[0]?.relativePath;
+    const boq = await billOfQuantitieModel.findById(id);
+    if (!boq) return next(new AppError("BOQ not found", 404));
+
+    const workflow = {
+        REVIEW: ["TECHNICAL"],
+        TECHNICAL: ["GENERAL", "REVIEW"],
+        GENERAL: ["SENT", "REVIEW"]
+    };
+    const currentStatus = boq.status;
+    let nextStatus;
+    if (stepName === "next") {
+        nextStatus = workflow[currentStatus]?.[0];
+        if (!boqPdf) return next(new AppError("يجب رفع المستند ممضي", 400));
+    } else if (stepName === "prev") {
+        nextStatus = workflow[currentStatus]?.[1];
+    } else {
+        return next(new AppError("Invalid stepName", 400));
+    }
+    if (!nextStatus) return next(new AppError("لا يمكن تحديث الحالة", 400));
+    // تحديث status
+    boq.status = nextStatus;
+    // إضافة التعديلات في changeLogs
+    if (!boq.changeLogs) {
+        boq.changeLogs = [];
+
+    }
+    boq.changeLogs.push({
+        changedBy: req.user._id,
+        fromStage: currentStatus,
+        toStage: nextStatus,
+        notes: notes,
+        attachments: boqPdf ? { boqPdf } : {}
+    });
+    console.log(boq.changeLogs);
+
+    await boq.save();
+    res.status(200).json({ status: "success", data: boq });
 });

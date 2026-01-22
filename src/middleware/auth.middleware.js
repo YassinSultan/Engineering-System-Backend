@@ -90,13 +90,18 @@ export const resolveUnit = ({ from, chain }) => {
 
 
 export const restrictTo = (requiredActions) => {
-    const actions = Array.isArray(requiredActions)
-        ? requiredActions
-        : [requiredActions];
-
     return async (req, res, next) => {
         try {
             if (req.user.role === "SUPER_ADMIN") return next();
+
+            const resolvedActions =
+                typeof requiredActions === "function"
+                    ? requiredActions(req)
+                    : requiredActions;
+
+            const actions = Array.isArray(resolvedActions)
+                ? resolvedActions
+                : [resolvedActions];
 
             const allowed = await hasAnyPermission(
                 req.user,
