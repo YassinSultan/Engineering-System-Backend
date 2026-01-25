@@ -30,7 +30,7 @@ router.post(
             { isUnit: true } // ✅ الـ ID نفسه هو Unit
         ]
     }),
-    restrictTo("billOfQuantitie:create:billOfQuantitie"),
+    restrictTo("billOfQuantitie:create"),
     createBillOfQuantitie
 );
 router.get("/", restrictTo("billOfQuantitie:read"), unitFilter("billOfQuantitie:read"), getAllBillOfQuantitie);
